@@ -68,13 +68,17 @@ class App:
         self.zoomed_image = sp.ndimage.zoom(self.data,(1,1,self.upsampling_factor_Y, 1),order=1)
         self.remapping4D()
 
+    
+    def correction_factor(self,current_index, max_index):
+        return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
+
 
     def remapping2D(self):
         sum_correction_factor = 0
         y_dim=self.remapped_image.shape[0]
         y_dim_upsampled = self.zoomed_image.shape[0]
         for row in np.arange(y_dim):
-            correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-y_dim)))
+            correction_factor = self.correction_factor(row,y_dim)
             sum_correction_factor += correction_factor
             upsampled_row = np.round(y_dim_upsampled*sum_correction_factor).astype(int)
             bins= np.round(y_dim*self.upsampling_factor_Y*correction_factor).astype(int)
@@ -86,16 +90,30 @@ class App:
         y_dim=self.remapped_image.shape[1]
         y_dim_upsampled = self.zoomed_image.shape[1]
         z_dim=self.remapped_image.shape[0]
-        z_dim_upsampled = self.zoomed_image.shape[0]
+
+        # correct slices in Y 
         for plane in np.arange(z_dim):
             sum_correction_factor_Y = 0
             for row in np.arange(y_dim):
-                correction_factor_Y = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-y_dim)))
+                correction_factor_Y = self.correction_factor(row,y_dim)
                 sum_correction_factor_Y += correction_factor_Y
                 upsampled_row = np.round(y_dim_upsampled*sum_correction_factor_Y).astype(int)
                 bins= np.round(y_dim*self.upsampling_factor_Y*correction_factor_Y).astype(int)
                 self.remapped_image[plane,row,:] = np.mean(self.zoomed_image[plane,upsampled_row:upsampled_row+bins,:],axis=0)
-    
+        
+        # correct Volume in Z
+        
+        self.zoomed_image = sp.ndimage.zoom(self.remapped_image,(self.upsampling_factor_Z, 1, 1),order=1)
+        z_dim_upsampled = self.zoomed_image.shape[0]
+
+        for plane in np.arange(z_dim):
+            correction_factor_Z = self.correction_factor(plane,z_dim)
+            sum_correction_factor_Z += correction_factor_Z
+            upsampled_plane = np.round(z_dim_upsampled*sum_correction_factor_Z).astype(int)
+            bins= np.round(z_dim*self.upsampling_factor_Z*correction_factor_Z).astype(int)
+            self.remapped_image[plane] = np.mean(self.zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
+
+
     def save_image(self):
         if self.remapped_image is not None:
             tiff.imwrite(self.filename.removesuffix('.tif')+'_resampled'+'.tif',self.remapped_image)
@@ -106,3 +124,5 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+
+# %%
