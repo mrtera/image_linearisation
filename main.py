@@ -39,72 +39,66 @@ class App:
         self.filename = filedialog.askopenfilename()
         self.data = np.array(tiff.imread(self.filename))
         self.dim = self.data.ndim
-        print(self.data.shape)
+        print('Data shape: '+self.data.shape)
 
     def upsample(self):
         self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
         self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
         self.remapped_image = np.zeros_like((self.data))
         if self.dim == 2:
-            self.upsample_2D()
+            self.process_2D()
         elif self.dim == 3:
-            self.upsample_3D()
+            self.process_3D()
         elif self.dim == 4:
-            self.upsample_4D()
+            self.process_4D()
         else:
             print('Image dimension not supported')
+
         self.save_image()
         
 
-    def upsample_2D(self):
-        self.zoomed_image = sp.ndimage.zoom(self.data,(self.upsampling_factor_Y, 1),order=1)
-        self.remapping2D()
+    def process_2D(self):
+        zoomed_image = sp.ndimage.zoom(self.data,(self.upsampling_factor_Y, 1),order=1)
+        self.remapped_image = self.remapping2D(self.remapped_image,zoomed_image)
 
-    def upsample_3D(self):
-        self.zoomed_image = sp.ndimage.zoom(self.data,(1,self.upsampling_factor_Y, 1),order=1)
-        self.remapping3D2()
+    def process_3D(self):
+        zoomed_image = sp.ndimage.zoom(self.data,(1,self.upsampling_factor_Y, 1),order=1)
+        self.remapped_image = self.remapping3D(self.remapped_image,zoomed_image)
     
-    def upsample_4D(self):
+    def process_4D(self):
         self.zoomed_image = sp.ndimage.zoom(self.data,(1,1,self.upsampling_factor_Y, 1),order=1)
-        self.remapping4D()
+        self.remapped_image = self.remapping4D(self.remapped_image,self.zoomed_image)
 
     
     def correction_factor(self,current_index, max_index):
         return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
 
 
-    def remapping2D(self):
+    def remapping2D(self,remapped_image,zoomed_image):
         sum_correction_factor = 0
-        y_dim=self.remapped_image.shape[0]
-        y_dim_upsampled = self.zoomed_image.shape[0]
+        y_dim=remapped_image.shape[0]
+        y_dim_upsampled = zoomed_image.shape[0]
         for row in np.arange(y_dim):
             correction_factor = self.correction_factor(row,y_dim)
             sum_correction_factor += correction_factor
             upsampled_row = np.round(y_dim_upsampled*sum_correction_factor).astype(int)
             bins= np.round(y_dim*self.upsampling_factor_Y*correction_factor).astype(int)
-            self.remapped_image[row] = np.mean(self.zoomed_image[upsampled_row:upsampled_row+bins],axis=0)
+            remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0)
+        
+        return remapped_image
 
     
-    def remapping3D2(self):  
-        sum_correction_factor_Z = 0
-        y_dim=self.remapped_image.shape[1]
-        y_dim_upsampled = self.zoomed_image.shape[1]
-        z_dim=self.remapped_image.shape[0]
+    def remapping3D(self,remapped_image,zoomed_image):  
 
-        # correct slices in Y 
+        # correct all slices in Y 
+        z_dim=remapped_image.shape[0]
         for plane in np.arange(z_dim):
-            sum_correction_factor_Y = 0
-            for row in np.arange(y_dim):
-                correction_factor_Y = self.correction_factor(row,y_dim)
-                sum_correction_factor_Y += correction_factor_Y
-                upsampled_row = np.round(y_dim_upsampled*sum_correction_factor_Y).astype(int)
-                bins= np.round(y_dim*self.upsampling_factor_Y*correction_factor_Y).astype(int)
-                self.remapped_image[plane,row,:] = np.mean(self.zoomed_image[plane,upsampled_row:upsampled_row+bins,:],axis=0)
-        
+            remapped_image[plane] = self.remapping2D(remapped_image[plane],zoomed_image[plane])
+   
         # correct Volume in Z
-        
-        self.zoomed_image = sp.ndimage.zoom(self.remapped_image,(self.upsampling_factor_Z, 1, 1),order=1)
-        z_dim_upsampled = self.zoomed_image.shape[0]
+        sum_correction_factor_Z = 0
+        zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_Z, 1, 1),order=1)
+        z_dim_upsampled = zoomed_image.shape[0]
 
         for plane in np.arange(z_dim):
             correction_factor_Z = self.correction_factor(plane,z_dim)
@@ -112,6 +106,17 @@ class App:
             upsampled_plane = np.round(z_dim_upsampled*sum_correction_factor_Z).astype(int)
             bins= np.round(z_dim*self.upsampling_factor_Z*correction_factor_Z).astype(int)
             self.remapped_image[plane] = np.mean(self.zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
+        
+        return remapped_image
+    
+
+    def remapping4D(self,remapped_image,zoomed_image):
+        # call the correction pipeline for n volumes
+        t_dim = remapped_image.shape[0]
+        for volume in np.arange(t_dim):
+            remapped_image[volume] = self.remapping3D(remapped_image[volume],zoomed_image[volume])
+        
+        return remapped_image
 
 
     def save_image(self):
