@@ -33,27 +33,34 @@ class App:
         self.process.pack()
 
         self.remapped_image = None
-        
 
     def open_image(self):
+
         self.filename = filedialog.askopenfilename()
-        self.data = np.array(tiff.imread(self.filename))
-        self.dim = self.data.ndim
-        print('Data shape: '+self.data.shape)
+        with tiff.TiffFile(self.filename) as tif:
+            self.dim = tif.series[0].ndim
+            print('Stack dimension: '+str(tif.series[0].shape))
+            print('Stack timepoints: '+str(tif.series[0].shape[0]))
+            print('Stack Z slices: '+str(tif.series[0].shape[1]))
+    
 
     def upsample(self):
+        with tiff.TiffFile(self.filename) as tif:
+            if self.dim == 2:
+                self.process_2D()
+            elif self.dim == 3:
+                self.process_3D()
+            elif self.dim == 4:
+                self.process_4D()
+            else:
+                print('Image dimension not supported')
+
+            
+
         self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
         self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
         self.remapped_image = np.zeros_like((self.data))
-        if self.dim == 2:
-            self.process_2D()
-        elif self.dim == 3:
-            self.process_3D()
-        elif self.dim == 4:
-            self.process_4D()
-        else:
-            print('Image dimension not supported')
-
+        
         self.save_image()
         
 
