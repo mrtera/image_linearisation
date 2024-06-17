@@ -6,6 +6,7 @@ from tkinter import filedialog
 import tifffile as tiff
 import numpy as np
 import scipy as sp
+
 class App:
     def __init__(self, root):
         self.root = root
@@ -105,12 +106,12 @@ class App:
                 self.save_image(remapped_image)
 
         elif self.dim == 4 and self.is2D == False:
-                remapped_image = self.process_4D()
-                self.save_image(remapped_image)
-                print('Data saved')
+            remapped_image = self.process_4D()
+            self.save_image(remapped_image)
+            print('Data saved')
 
         elif self.dim == 3 and self.is2D == True:
-            ...
+            remapped_image = self.process_2Dt()
 
         else:
             print('Image dimension not supported!')
@@ -128,16 +129,7 @@ class App:
             # memory map numpy array to data in OME-TIFF file
             memap_stack = tiff.memmap(filename)
             return memap_stack
-                   
-
-    def process_2D(self,data):
-        remapped_image = self.remapping2D(data)
-        return remapped_image
-
-    def process_3D(self,data):
-        zoomed_image = sp.ndimage.zoom(data,(1,self.upsampling_factor_Y, 1),order=1)
-        remapped_image = self.remapping3D(data,zoomed_image)
-        return remapped_image
+    
     
     def process_4D(self):
         memap_stack = self.memap()
@@ -147,8 +139,8 @@ class App:
                 for volumes in range(self.z_dim):
                     memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
         print('Data written to memory-mapped array') 
-        # process data in memory-mapped array
         
+        # process data in memory-mapped array        
         for timestep in np.arange(self.t_dim): 
             zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
             memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
@@ -156,8 +148,37 @@ class App:
         self.save_image(memap_stack)
         memap_stack.flush()
         return memap_stack
+    
+    
+    def process_2Dt(self):
+        memap_stack = self.memap()
+        # write data to memory-mapped array
+        with tiff.TiffFile(self.filename) as tif:
+            for timepoints in range(self.z_dim):
+                memap_stack[timepoints] = tif.pages[timepoints].asarray()
+        print('Data written to memory-mapped array')
+        
+        # process data in memory-mapped array
+        for timestep in np.arange(self.z_dim): 
+            memap_stack[timestep] = self.process_2D(memap_stack[timestep])
+            print('Frame '+str(timestep)+' corrected')
+        self.save_image(memap_stack)
+        memap_stack.flush()
+        return memap_stack
+    
+    
+    def process_3D(self,data):
+        zoomed_image = sp.ndimage.zoom(data,(1,self.upsampling_factor_Y, 1),order=1)
+        remapped_image = self.remapping3D(data,zoomed_image)
+        return remapped_image
+                   
+
+    def process_2D(self,data):
+        remapped_image = self.remapping2D(data)
+        return remapped_image
 
 
+### Remapping ###
     def remapping3D(self,remapped_image,zoomed_image): 
         
         # correct all slices in Y 
