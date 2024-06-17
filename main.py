@@ -45,7 +45,11 @@ class App:
     
 
     def upsample(self):
+        self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
+        self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
         with tiff.TiffFile(self.filename) as tif:
+            self.data = tif.asarray()
+            self.remapped_image = np.zeros_like((self.data))
             if self.dim == 2:
                 self.process_2D()
             elif self.dim == 3:
@@ -53,13 +57,7 @@ class App:
             elif self.dim == 4:
                 self.process_4D()
             else:
-                print('Image dimension not supported')
-
-            
-
-        self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
-        self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
-        self.remapped_image = np.zeros_like((self.data))
+                print('Image dimension not supported')        
         
         self.save_image()
         
@@ -73,8 +71,10 @@ class App:
         self.remapped_image = self.remapping3D(self.remapped_image,zoomed_image)
     
     def process_4D(self):
-        self.zoomed_image = sp.ndimage.zoom(self.data,(1,1,self.upsampling_factor_Y, 1),order=1)
-        self.remapped_image = self.remapping4D(self.remapped_image,self.zoomed_image)
+        for volume in np.arange(self.data.shape[0]):
+            zoomed_image = sp.ndimage.zoom(self.data[volume],(1,self.upsampling_factor_Y, 1),order=1)
+            self.remapped_image[volume] = self.remapping3D(self.remapped_image[volume],zoomed_image)
+            print('Volume '+str(volume)+' corrected')
 
     
     def correction_factor(self,current_index, max_index):
@@ -112,25 +112,14 @@ class App:
             sum_correction_factor_Z += correction_factor_Z
             upsampled_plane = np.round(z_dim_upsampled*sum_correction_factor_Z).astype(int)
             bins= np.round(z_dim*self.upsampling_factor_Z*correction_factor_Z).astype(int)
-            self.remapped_image[plane] = np.mean(self.zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
+            remapped_image[plane] = np.mean(zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
         
         return remapped_image
     
 
-    def remapping4D(self,remapped_image,zoomed_image):
-        # call the correction pipeline for n volumes
-        t_dim = remapped_image.shape[0]
-        for volume in np.arange(t_dim):
-            remapped_image[volume] = self.remapping3D(remapped_image[volume],zoomed_image[volume])
-        
-        return remapped_image
-
-
     def save_image(self):
         if self.remapped_image is not None:
-            tiff.imwrite(self.filename.removesuffix('.tif')+'_resampled'+'.tif',self.remapped_image)
-
-
+            tiff.imwrite(self.filename.removesuffix('.tif')+'_resampled'+'.tif',self.remapped_image,compression=('zlib', 1))
 
 if __name__ == '__main__':
     root = Tk()
