@@ -134,8 +134,10 @@ class App:
     def process_4D(self):
         memap_stack = self.memap()
         # write data to memory-mapped array
+        print('Writing data to memory-mapped array')
         with tiff.TiffFile(self.filename) as tif:
             for timepoints in range(self.t_dim):
+                print(timepoints + '/' + self.t_dim + ' Volumes written')
                 for volumes in range(self.z_dim):
                     memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
         print('Data written to memory-mapped array') 
@@ -153,8 +155,10 @@ class App:
     def process_2Dt(self):
         memap_stack = self.memap()
         # write data to memory-mapped array
+        print('Writing data to memory-mapped array')
         with tiff.TiffFile(self.filename) as tif:
             for timepoints in range(self.z_dim):
+                print(timepoints + '/' + self.z_dim + ' Frames written')
                 memap_stack[timepoints] = tif.pages[timepoints].asarray()
         print('Data written to memory-mapped array')
         
