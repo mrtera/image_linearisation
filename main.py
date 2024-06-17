@@ -39,27 +39,44 @@ class App:
         self.filename = filedialog.askopenfilename()
         with tiff.TiffFile(self.filename) as tif:
             self.dim = tif.series[0].ndim
-            print('Stack dimension: '+str(tif.series[0].shape))
-            print('Stack timepoints: '+str(tif.series[0].shape[0]))
-            print('Stack Z slices: '+str(tif.series[0].shape[1]))
-    
+            if self.dim >=2 and self.dim <= 4:
+                print('Found Stack dimension: '+str(tif.series[0].shape))
+                try:
+                    print('t dim = '+str(tif.series[0].shape[-4]))
+                except IndexError:
+                    pass
+                try:
+                    print('Z dim = '+str(tif.series[0].shape[-3]))
+                except IndexError:
+                    pass
+                try:
+                    print('Y dim = '+str(tif.series[0].shape[-2]))
+                    print('X dim = '+str(tif.series[0].shape[-1]))
+                except IndexError:
+                    pass
+            else:
+                print('Image dimension not supported') 
+
 
     def upsample(self):
         self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
         self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
-        with tiff.TiffFile(self.filename) as tif:
-            self.data = tif.asarray()
-            self.remapped_image = np.zeros_like((self.data))
-            if self.dim == 2:
-                self.process_2D()
-            elif self.dim == 3:
-                self.process_3D()
-            elif self.dim == 4:
-                self.process_4D()
-            else:
-                print('Image dimension not supported')        
+        if self.dim >=2 and self.dim <= 4:
+            with tiff.TiffFile(self.filename) as tif:
+                self.data = tif.asarray()
+                self.remapped_image = np.zeros_like((self.data))
+                if self.dim == 2:
+                    self.process_2D()
+                elif self.dim == 3:
+                    self.process_3D()
+                elif self.dim == 4:
+                    self.process_4D()
+            self.save_image()
+        else:
+            print('Image dimension not supported!')
+                       
         
-        self.save_image()
+        
         
 
     def process_2D(self):
@@ -71,7 +88,7 @@ class App:
         self.remapped_image = self.remapping3D(self.remapped_image,zoomed_image)
     
     def process_4D(self):
-        for volume in np.arange(self.data.shape[0]):
+        for volume in np.arange(self.data.shape[0]): 
             zoomed_image = sp.ndimage.zoom(self.data[volume],(1,self.upsampling_factor_Y, 1),order=1)
             self.remapped_image[volume] = self.remapping3D(self.remapped_image[volume],zoomed_image)
             print('Volume '+str(volume)+' corrected')
