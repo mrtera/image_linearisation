@@ -137,7 +137,7 @@ class App:
         print('Writing data to memory-mapped array')
         with tiff.TiffFile(self.filename) as tif:
             for timepoints in range(self.t_dim):
-                print(timepoints + '/' + self.t_dim + ' Volumes written')
+                print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
                 for volumes in range(self.z_dim):
                     memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
         print('Data written to memory-mapped array') 
@@ -158,7 +158,7 @@ class App:
         print('Writing data to memory-mapped array')
         with tiff.TiffFile(self.filename) as tif:
             for timepoints in range(self.z_dim):
-                print(timepoints + '/' + self.z_dim + ' Frames written')
+                print(str(timepoints) + '/' + str(self.z_dim) + ' Frames written')
                 memap_stack[timepoints] = tif.pages[timepoints].asarray()
         print('Data written to memory-mapped array')
         
