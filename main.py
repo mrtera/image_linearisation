@@ -32,7 +32,7 @@ class App:
         self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
         self.remove_snow = BooleanVar(value=True)
-        self.remove_snow_checkbox = Checkbutton(root, text='removev snow', variable=self.remove_snow)
+        self.remove_snow_checkbox = Checkbutton(root, text='remove snow', variable=self.remove_snow)
         self.remove_snow_checkbox.grid(row=4, column=2)
 
         self.is2D_video = BooleanVar(value=False)
@@ -281,16 +281,15 @@ class App:
                     filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
-            #data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
+
         else:
             snow_coords = list(zip(*np.where(data > 0.1*snow_value)))
-            print(snow_coords)
             for flakes in snow_coords:
                 try:
                     filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2:2]).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
-            #data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
+
         return data
 
 ################sp.signal.convolve(img, kern, mode='same')
