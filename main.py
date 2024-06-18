@@ -251,12 +251,17 @@ class App:
     def remapping2D(self,remapped_image):
         if self.do_Y_correction.get() == True:
             zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_Y, 1),order=1)
-            remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_Y)        
+            remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_Y) 
+        else:
+            pass
+        
         if self.do_x_correction.get() == True:
             remapped_image = np.swapaxes(remapped_image,0,1)
             zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_X, 1),order=1)
             remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_X)
-            remapped_image = np.swapaxes(remapped_image,0,1)  
+            remapped_image = np.swapaxes(remapped_image,0,1) 
+        else:
+            pass
 
         return remapped_image    
         
