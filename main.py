@@ -145,69 +145,85 @@ class App:
     
     
     def process_4D(self):
-        memap_stack, new_name = self.memap()
-        # write data to memory-mapped array
-        print('Writing data to memory-mapped array')
-        with tiff.TiffFile(self.filename) as tif:
-            for timepoints in range(self.t_dim):
-                for volumes in range(self.z_dim):
-                    memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
-                if timepoints % 50 == 0:
-                    print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
-        print('Data written to memory-mapped array') 
+        memmap = False
+        try:
+            with tiff.TiffFile(self.filename) as tif:
+                stack = tif.asarray()
+        except np.core._exceptions._ArrayMemoryError:
+            memmap = True
+            print('MemoryError: File too large for RAM, processing with memmap')
+            stack, new_name = self.memap()
+            # write data to memory-mapped array    
+            print('Writing data to memory-mapped array')
+            with tiff.TiffFile(self.filename) as tif:
+                for timepoints in range(self.t_dim):
+                    for volumes in range(self.z_dim):
+                        stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
+                    if timepoints % 50 == 0:
+                        print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
+            print('Data written to memory-mapped array') 
         
-        # process data in memory-mapped array
+        # process data
         # melt snow if selected
         if self.melt == True:
-            snow_value = np.amax(memap_stack)
+            snow_value = np.amax(stack)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(int(self.snow_threshold*snow_value)))
             for timestep in range(self.t_dim):
-                memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value)
-                zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-                memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
+                stack[timestep] = self.melt_snow(stack[timestep],snow_value)
+                zoomed_image = sp.ndimage.zoom(stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
+                stack[timestep] = self.remapping3D(stack[timestep],zoomed_image)
                 print('Volume '+str(timestep)+' corrected')
         
         else:
             for timestep in np.arange(self.t_dim): 
-                zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-                memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
+                zoomed_image = sp.ndimage.zoom(stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
+                stack[timestep] = self.remapping3D(stack[timestep],zoomed_image)
                 print('Volume '+str(timestep)+' corrected')
-        memap_stack.flush()
+        
+        if memmap == True:
+            stack.flush()
         self.compress_image(new_name)        
         
-        return memap_stack
+        return stack
     
     
     def process_2Dt(self):
-        memap_stack, new_name = self.memap()
-        # write data to memory-mapped array
-        print('Writing data to memory-mapped array')
-        with tiff.TiffFile(self.filename) as tif:
-            for timepoints in range(self.z_dim):
-                if timepoints % 100 == 0:
-                    print(str(timepoints) + '/' + str(self.z_dim) + ' Frames written')
-                memap_stack[timepoints] = tif.pages[timepoints].asarray()
-        print('Data written to memory-mapped array')
+        memmap = False
+        try:
+            with tiff.TiffFile(self.filename) as tif:
+                stack = tif.asarray()
+        except np.core._exceptions._ArrayMemoryError:
+            stack, new_name = self.memap()
+            # write data to memory-mapped array
+            print('Writing data to memory-mapped array')
+            with tiff.TiffFile(self.filename) as tif:
+                for timepoints in range(self.z_dim):
+                    if timepoints % 100 == 0:
+                        print(str(timepoints) + '/' + str(self.z_dim) + ' Frames written')
+                    stack[timepoints] = tif.pages[timepoints].asarray()
+            print('Data written to memory-mapped array')
         
         # process data in memory-mapped array
         # melt snow 2D if selected
         if self.melt == True:
-            snow_value = np.amax(memap_stack)
+            snow_value = np.amax(stack)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(self.z_dim): 
-                memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
-                memap_stack[timestep] = self.process_2D(memap_stack[timestep])
+                stack[timestep] = self.melt_snow(stack[timestep],snow_value,D2=True)
+                stack[timestep] = self.process_2D(stack[timestep])
                 print('Frame '+str(timestep)+' corrected')
         
         else:
             for timestep in np.arange(self.z_dim): 
-                memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
-                memap_stack[timestep] = self.process_2D(memap_stack[timestep])
+                stack[timestep] = self.melt_snow(stack[timestep],snow_value,D2=True)
+                stack[timestep] = self.process_2D(stack[timestep])
                 print('Frame '+str(timestep)+' corrected')
-        memap_stack.flush() 
+
+        if memmap == True:
+            stack.flush() 
 
         self.compress_image(new_name)               
-        return memap_stack
+        return stack
     
     
     def process_3D(self,data):
@@ -317,13 +333,11 @@ class App:
         try:
             with tiff.TiffFile(self.filename) as tif:
                 data = tif.asarray()
-                tiff.imwrrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib', 1))
+                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib', 1))
+                print('Data compressed and saved')
         except:
             print('Data could not be loaded')
-            return
-            
-        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed'+'.tif',file,compression=('zlib', 1))
-        
+        return                        
 
 if __name__ == '__main__':
     root = Tk()
