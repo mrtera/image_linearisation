@@ -98,10 +98,16 @@ class App:
 
             with tiff.TiffFile(self.filename) as tif:
                 data = tif.asarray()
+                if self.melt == True:
+                    snow_value = np.amax(data)
             if self.dim == 2:
+                if self.melt == True:
+                    data = self.melt_snow(data,snow_value,D2=True)
                 remapped_image = self.process_2D(data)
                 self.save_image(remapped_image)
             elif self.dim == 3:
+                if self.melt == True:
+                    data = self.melt_snow(data,snow_value)
                 remapped_image = self.process_3D(data)
                 self.save_image(remapped_image)
 
@@ -142,13 +148,25 @@ class App:
                     memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
         print('Data written to memory-mapped array') 
         
-        # process data in memory-mapped array        
-        for timestep in np.arange(self.t_dim): 
-            zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-            memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
-            print('Volume '+str(timestep)+' corrected')
+        # process data in memory-mapped array
+        # melt snow if selected
+        if self.melt == True:
+            snow_value = np.amax(memap_stack)
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.95*snow_value))
+            for timepoints in range(self.t_dim):
+                memap_stack[timepoints] = self.melt_snow(memap_stack[timepoints],snow_value)
+                zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
+                memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
+                print('Volume '+str(timestep)+' corrected')
+        
+        else:
+            for timestep in np.arange(self.t_dim): 
+                zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
+                memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
+                print('Volume '+str(timestep)+' corrected')
         self.save_image(memap_stack)
-        memap_stack.flush()
+        memap_stack.flush()        
+        
         return memap_stack
     
     
@@ -163,11 +181,25 @@ class App:
         print('Data written to memory-mapped array')
         
         # process data in memory-mapped array
-        for timestep in np.arange(self.z_dim): 
-            memap_stack[timestep] = self.process_2D(memap_stack[timestep])
-            print('Frame '+str(timestep)+' corrected')
-        self.save_image(memap_stack)
-        memap_stack.flush()
+        # melt snow 2D
+        #  if selected
+        if self.melt == True:
+            snow_value = np.amax(memap_stack)
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.95*snow_value))
+            for timestep in np.arange(self.z_dim): 
+                memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
+                memap_stack[timestep] = self.process_2D(memap_stack[timestep])
+                print('Frame '+str(timestep)+' corrected')
+            self.save_image(memap_stack)
+        
+        else:
+            for timestep in np.arange(self.z_dim): 
+                memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
+                memap_stack[timestep] = self.process_2D(memap_stack[timestep])
+                print('Frame '+str(timestep)+' corrected')
+            self.save_image(memap_stack)
+
+        memap_stack.flush()        
         return memap_stack
     
     
@@ -232,9 +264,19 @@ class App:
             remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0)
         return remapped_image
     
+
     def correction_factor(self,current_index, max_index):
         return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
 
+### Snow removal ###
+    def melt_snow(self,data,snow_value,D2=False):
+        if D2 == True:
+            snow_coords = np.where(data > 0.95*snow_value)
+            data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
+        else:
+            snow_coords = np.where(data > 0.95*snow_value)
+            data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
+        return data
 
     def save_image(self,file):
         tiff.imwrite(self.filename.removesuffix('.tif')+'_processed'+'.tif',file,compression=('zlib', 1))
