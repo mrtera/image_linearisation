@@ -15,40 +15,44 @@ class App:
 
         self.label = Label(root, text='Upsampleing factor X:')
         self.label.grid(row=0, column=1)
-        self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=3)
+        self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
         self.upsampling_factor_X_spinbox.set(3)
         self.upsampling_factor_X_spinbox.grid(row=0, column=2)
 
         self.label = Label(root, text='Upsampleing factor Y:')
         self.label.grid(row=1, column=1)
-        self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=3)
+        self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
         self.upsampling_factor_Y_spinbox.set(3)
         self.upsampling_factor_Y_spinbox.grid(row=1, column=2)
         
         self.label = Label(root, text='Upsampleing factor Z:')
         self.label.grid(row=2, column=1)
-        self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=3)
+        self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
         self.upsampling_factor_Z_spinbox.set(3)
         self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
+        self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.01, format='%.2f')
+        self.snow_threshold_spinbox.set(0.1)
+        self.snow_threshold_spinbox.grid(row=3, column=2)
+
         self.remove_snow = BooleanVar(value=True)
-        self.remove_snow_checkbox = Checkbutton(root, text='remove snow', variable=self.remove_snow)
-        self.remove_snow_checkbox.grid(row=4, column=2)
+        self.remove_snow_checkbox = Checkbutton(root, text='remove snow above x*max', variable=self.remove_snow)
+        self.remove_snow_checkbox.grid(row=3, column=1)
 
         self.is2D_video = BooleanVar(value=False)
-        self.is2D_video_checkbox = Checkbutton(root, text='Is 2D Video', variable=self.is2D_video)
-        self.is2D_video_checkbox.grid(row=4, column=0, columnspan=1)
+        self.is2D_video_checkbox = Checkbutton(root, text='2D Video', variable=self.is2D_video)
+        self.is2D_video_checkbox.grid(row=3, column=0,)
 
         self.do_x_correction = BooleanVar(value=False)
-        self.do_x_correction_checkbox = Checkbutton(root, text='', variable=self.do_x_correction)
+        self.do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
         self.do_x_correction_checkbox.grid(row=0, column=0)
 
         self.do_Y_correction = BooleanVar(value=True)
-        self.do_Y_correction_checkbox = Checkbutton(root, text='', variable=self.do_Y_correction)
+        self.do_Y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_Y_correction)
         self.do_Y_correction_checkbox.grid(row=1, column=0)
 
         self.do_z_correction = BooleanVar(value=True)
-        self.do_z_correction_checkbox = Checkbutton(root, text='', variable=self.do_z_correction)
+        self.do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
         self.do_z_correction_checkbox.grid(row=2, column=0)
 
         self.open = Button(root, text='Open Image', command=self.open_image)
@@ -98,6 +102,7 @@ class App:
         self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
         self.is2D = self.is2D_video.get()
         self.melt = self.remove_snow.get()
+        self.snow_threshold = float(self.snow_threshold_spinbox.get())
         if self.dim >=2 and self.dim <= 3 and self.is2D == False:
 
             with tiff.TiffFile(self.filename) as tif:
@@ -155,7 +160,7 @@ class App:
         # melt snow if selected
         if self.melt == True:
             snow_value = np.amax(memap_stack)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.6*snow_value))
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(int(self.snow_threshold*snow_value)))
             for timestep in range(self.t_dim):
                 memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value)
                 zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
@@ -183,11 +188,10 @@ class App:
         print('Data written to memory-mapped array')
         
         # process data in memory-mapped array
-        # melt snow 2D
-        #  if selected
+        # melt snow 2D if selected
         if self.melt == True:
             snow_value = np.amax(memap_stack)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.6*snow_value))
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(self.z_dim): 
                 memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
                 memap_stack[timestep] = self.process_2D(memap_stack[timestep])
@@ -275,20 +279,24 @@ class App:
     def melt_snow(self,data,snow_value,D2=False):
         filtered_data = data
         if D2 == True:
-            snow_coords = list(zip(*np.where(data > 0.1*snow_value)))
+            snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
             for flakes in snow_coords:
                 try:
                     filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
+                except RuntimeWarning:
+                    pass
 
         else:
-            snow_coords = list(zip(*np.where(data > 0.1*snow_value)))
+            snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
             for flakes in snow_coords:
                 try:
                     filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2:2]).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
+                except RuntimeWarning:
+                    pass
 
         return data
 
