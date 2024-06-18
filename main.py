@@ -154,7 +154,7 @@ class App:
             for timepoints in range(self.t_dim):
                 for volumes in range(self.z_dim):
                     memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
-                if timepoints % 10 == 0:
+                if timepoints % 50 == 0:
                     print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
         print('Data written to memory-mapped array') 
         
@@ -254,7 +254,7 @@ class App:
             remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_Y) 
         else:
             pass
-        
+
         if self.do_x_correction.get() == True:
             remapped_image = np.swapaxes(remapped_image,0,1)
             zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_X, 1),order=1)
