@@ -113,7 +113,6 @@ class App:
 
         elif self.dim == 4 and self.is2D == False:
             remapped_image = self.process_4D()
-            self.save_image(remapped_image)
             print('Data saved')
 
         elif self.dim == 3 and self.is2D == True:
@@ -152,11 +151,11 @@ class App:
         # melt snow if selected
         if self.melt == True:
             snow_value = np.amax(memap_stack)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.95*snow_value))
-            for timepoints in range(self.t_dim):
-                memap_stack[timepoints] = self.melt_snow(memap_stack[timepoints],snow_value)
-                zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-                memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.6*snow_value))
+            for timestep in range(self.t_dim):
+                memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value)
+                #zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
+                #memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
                 print('Volume '+str(timestep)+' corrected')
         
         else:
@@ -164,7 +163,6 @@ class App:
                 zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
                 memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
                 print('Volume '+str(timestep)+' corrected')
-        self.save_image(memap_stack)
         memap_stack.flush()        
         
         return memap_stack
@@ -185,7 +183,7 @@ class App:
         #  if selected
         if self.melt == True:
             snow_value = np.amax(memap_stack)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.95*snow_value))
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.6*snow_value))
             for timestep in np.arange(self.z_dim): 
                 memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
                 memap_stack[timestep] = self.process_2D(memap_stack[timestep])
@@ -270,14 +268,18 @@ class App:
 
 ### Snow removal ###
     def melt_snow(self,data,snow_value,D2=False):
+        filtered_data = data
         if D2 == True:
-            snow_coords = np.where(data > 0.95*snow_value)
-            print(snow_coords)
-            data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
+            snow_coords = list(zip(*np.where(data > 0.6*snow_value)))
+            for flakes in snow_coords:
+                filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2])
+            return filtered_data
+            #data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
         else:
-            snow_coords = np.where(data > 0.95*snow_value)
-            print(snow_coords[0].shape)
-            data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
+            snow_coords = list(zip(*np.where(data > 0.6*snow_value)))
+            
+            print(snow_coords)
+            #data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
         return data
 
 ################sp.signal.convolve(img, kern, mode='same')
