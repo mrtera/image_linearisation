@@ -294,6 +294,8 @@ class App:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]*kernel).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
+                except ValueError:
+                    filtered_data[flakes] = 0
                 except RuntimeWarning:
                     pass
 
@@ -305,6 +307,8 @@ class App:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2]*kernel).astype('uint16')
                 except IndexError:
+                    filtered_data[flakes] = 0
+                except ValueError:
                     filtered_data[flakes] = 0
                 except RuntimeWarning:
                     pass
