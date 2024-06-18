@@ -14,38 +14,42 @@ class App:
         self.root.resizable(True, True)
 
         self.label = Label(root, text='Upsampleing factor X:')
-        self.label.grid(row=0, column=0)
+        self.label.grid(row=0, column=1)
         self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=3)
         self.upsampling_factor_X_spinbox.set(3)
-        self.upsampling_factor_X_spinbox.grid(row=0, column=1)
+        self.upsampling_factor_X_spinbox.grid(row=0, column=2)
 
         self.label = Label(root, text='Upsampleing factor Y:')
-        self.label.grid(row=1, column=0)
+        self.label.grid(row=1, column=1)
         self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=3)
         self.upsampling_factor_Y_spinbox.set(3)
-        self.upsampling_factor_Y_spinbox.grid(row=1, column=1)
-
+        self.upsampling_factor_Y_spinbox.grid(row=1, column=2)
+        
         self.label = Label(root, text='Upsampleing factor Z:')
-        self.label.grid(row=2, column=0)
+        self.label.grid(row=2, column=1)
         self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=3)
         self.upsampling_factor_Z_spinbox.set(3)
-        self.upsampling_factor_Z_spinbox.grid(row=2, column=1)
+        self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
         self.remove_snow = BooleanVar(value=True)
         self.remove_snow_checkbox = Checkbutton(root, text='removev snow', variable=self.remove_snow)
-        self.remove_snow_checkbox.grid(row=4, column=1)
+        self.remove_snow_checkbox.grid(row=4, column=2)
 
         self.is2D_video = BooleanVar(value=False)
         self.is2D_video_checkbox = Checkbutton(root, text='Is 2D Video', variable=self.is2D_video)
-        self.is2D_video_checkbox.grid(row=3, column=1)
+        self.is2D_video_checkbox.grid(row=4, column=0, columnspan=1)
 
         self.do_x_correction = BooleanVar(value=False)
-        self.do_x_correction_checkbox = Checkbutton(root, text='Do X correction', variable=self.do_x_correction)
-        self.do_x_correction_checkbox.grid(row=3, column=0)
+        self.do_x_correction_checkbox = Checkbutton(root, text='', variable=self.do_x_correction)
+        self.do_x_correction_checkbox.grid(row=0, column=0)
+
+        self.do_Y_correction = BooleanVar(value=True)
+        self.do_Y_correction_checkbox = Checkbutton(root, text='', variable=self.do_Y_correction)
+        self.do_Y_correction_checkbox.grid(row=1, column=0)
 
         self.do_z_correction = BooleanVar(value=True)
-        self.do_z_correction_checkbox = Checkbutton(root, text='Do Z correction', variable=self.do_z_correction)
-        self.do_z_correction_checkbox.grid(row=4, column=0)
+        self.do_z_correction_checkbox = Checkbutton(root, text='', variable=self.do_z_correction)
+        self.do_z_correction_checkbox.grid(row=2, column=0)
 
         self.open = Button(root, text='Open Image', command=self.open_image)
         self.open.grid(row=5, column=0, columnspan=1)
@@ -239,14 +243,15 @@ class App:
 
 
     def remapping2D(self,remapped_image):
-        zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_Y, 1),order=1)
-        remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_Y)        
-        
+        if self.do_Y_correction.get() == True:
+            zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_Y, 1),order=1)
+            remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_Y)        
         if self.do_x_correction.get() == True:
             remapped_image = np.swapaxes(remapped_image,0,1)
             zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_X, 1),order=1)
             remapped_image = self.remapping1D(remapped_image,zoomed_image,self.upsampling_factor_X)
-            remapped_image = np.swapaxes(remapped_image,0,1)        
+            remapped_image = np.swapaxes(remapped_image,0,1)  
+
         return remapped_image    
         
     
@@ -270,7 +275,7 @@ class App:
     def melt_snow(self,data,snow_value,D2=False):
         filtered_data = data
         if D2 == True:
-            snow_coords = list(zip(*np.where(data > 0.01*snow_value)))
+            snow_coords = list(zip(*np.where(data > 0.1*snow_value)))
             for flakes in snow_coords:
                 try:
                     filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]).astype('uint16')
@@ -278,10 +283,11 @@ class App:
                     filtered_data[flakes] = 0
             #data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
         else:
-            snow_coords = list(zip(*np.where(data > 0.01*snow_value)))
+            snow_coords = list(zip(*np.where(data > 0.1*snow_value)))
+            print(snow_coords)
             for flakes in snow_coords:
                 try:
-                    filtered_data[flakes] = 0# np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2:2]).astype('uint16')
+                    filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2:2]).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
             #data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
