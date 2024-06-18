@@ -199,7 +199,6 @@ class App:
                 memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value,D2=True)
                 memap_stack[timestep] = self.process_2D(memap_stack[timestep])
                 print('Frame '+str(timestep)+' corrected')
-            self.save_image(memap_stack)
         
         else:
             for timestep in np.arange(self.z_dim): 
