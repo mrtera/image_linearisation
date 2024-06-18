@@ -286,10 +286,12 @@ class App:
     def melt_snow(self,data,snow_value,D2=False):
         filtered_data = data
         if D2 == True:
+            kernel = np.ones((3,3))/6
+            kernel[1,:]=0
             snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
             for flakes in snow_coords:
                 try:
-                    filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]).astype('uint16')
+                    filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]*kernel).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
                 except RuntimeWarning:
@@ -297,9 +299,11 @@ class App:
 
         else:
             snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
+            kernel = np.ones((3,3,3))/24
+            kernel[1,1,:]=0
             for flakes in snow_coords:
                 try:
-                    filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2:2]).astype('uint16')
+                    filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2]*kernel).astype('uint16')
                 except IndexError:
                     filtered_data[flakes] = 0
                 except RuntimeWarning:
