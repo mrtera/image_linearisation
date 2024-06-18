@@ -158,8 +158,8 @@ class App:
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(0.6*snow_value))
             for timestep in range(self.t_dim):
                 memap_stack[timestep] = self.melt_snow(memap_stack[timestep],snow_value)
-                #zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-                #memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
+                zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
+                memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
                 print('Volume '+str(timestep)+' corrected')
         
         else:
@@ -292,7 +292,6 @@ class App:
 
         return data
 
-################sp.signal.convolve(img, kern, mode='same')
 
     def save_image(self,file):
         tiff.imwrite(self.filename.removesuffix('.tif')+'_processed'+'.tif',file,compression=('zlib', 1))
