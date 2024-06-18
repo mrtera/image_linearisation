@@ -272,11 +272,19 @@ class App:
         if D2 == True:
             snow_coords = list(zip(*np.where(data > 0.6*snow_value)))
             for flakes in snow_coords:
-                filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2])
+                try:
+                    filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2])
+                except IndexError:
+                    filtered_data[flakes] = 0
             return filtered_data
             #data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
         else:
             snow_coords = list(zip(*np.where(data > 0.6*snow_value)))
+            for flakes in snow_coords:
+                try:
+                    filtered_data[flakes] = np.mean(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2:2])
+                except IndexError:
+                    filtered_data[flakes] = 0
             
             print(snow_coords)
             #data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
