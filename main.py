@@ -121,7 +121,7 @@ class App:
             # create a memmory mapped array to enable processing of larger than RAM files:
             filename = self.filename.removesuffix('.tif')+'_processed'+'.tif'
             shape = self.tif_shape
-            print('memap file shape: '+str(shape))
+            print('Creating memap file, might take a while, shape: '+str(shape))
             dtype = self.dtype
             # create an empty OME-TIFF file
             tiff.imwrite(filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
@@ -137,10 +137,10 @@ class App:
         print('Writing data to memory-mapped array')
         with tiff.TiffFile(self.filename) as tif:
             for timepoints in range(self.t_dim):
-                if timepoints % 10 == 0:
-                    print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
                 for volumes in range(self.z_dim):
                     memap_stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
+                if timepoints % 10 == 0:
+                    print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
         print('Data written to memory-mapped array') 
         
         # process data in memory-mapped array        
@@ -158,7 +158,7 @@ class App:
         print('Writing data to memory-mapped array')
         with tiff.TiffFile(self.filename) as tif:
             for timepoints in range(self.z_dim):
-                if timepoints % 10 == 0:
+                if timepoints % 100 == 0:
                     print(str(timepoints) + '/' + str(self.z_dim) + ' Frames written')
                 memap_stack[timepoints] = tif.pages[timepoints].asarray()
         print('Data written to memory-mapped array')
