@@ -107,11 +107,11 @@ class App:
 
         elif self.dim == 4 and self.is2D == False:
             remapped_image = self.process_4D()
-            self.save_image(remapped_image)
             print('Data saved')
 
         elif self.dim == 3 and self.is2D == True:
             remapped_image = self.process_2Dt()
+            print('Data saved')
 
         else:
             print('Image dimension not supported!')
@@ -147,7 +147,6 @@ class App:
             zoomed_image = sp.ndimage.zoom(memap_stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
             memap_stack[timestep] = self.remapping3D(memap_stack[timestep],zoomed_image)
             print('Volume '+str(timestep)+' corrected')
-        self.save_image(memap_stack)
         memap_stack.flush()
         return memap_stack
     
@@ -166,7 +165,6 @@ class App:
         for timestep in np.arange(self.z_dim): 
             memap_stack[timestep] = self.process_2D(memap_stack[timestep])
             print('Frame '+str(timestep)+' corrected')
-        self.save_image(memap_stack)
         memap_stack.flush()
         return memap_stack
     
