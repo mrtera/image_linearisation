@@ -272,11 +272,15 @@ class App:
     def melt_snow(self,data,snow_value,D2=False):
         if D2 == True:
             snow_coords = np.where(data > 0.95*snow_value)
+            print(snow_coords)
             data[snow_coords] = np.convolve(data[snow_coords],np.array(([1,1,1],[0,0,0],[1,1,1]))/6,mode='same')
         else:
             snow_coords = np.where(data > 0.95*snow_value)
+            print(snow_coords[0].shape)
             data[snow_coords] = np.convolve(data[snow_coords],np.array(([[1,1,1],[1,1,1],[1,1,1]],[[1,1,1],[0,0,0],[1,1,1]],[[1,1,1],[1,1,1],[1,1,1]]))/24,mode='full')
         return data
+
+################sp.signal.convolve(img, kern, mode='same')
 
     def save_image(self,file):
         tiff.imwrite(self.filename.removesuffix('.tif')+'_processed'+'.tif',file,compression=('zlib', 1))
