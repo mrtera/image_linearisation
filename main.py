@@ -121,10 +121,10 @@ class App:
                 self.save_image(remapped_image)
 
         elif self.dim == 4 and self.is2D == False:
-            remapped_image = self.process_4D()
+            self.process_4D()
 
         elif self.dim == 3 and self.is2D == True:
-            remapped_image = self.process_2Dt()
+            self.process_2Dt()
 
         else:
             print('Image dimension not supported!')
@@ -185,7 +185,7 @@ class App:
         else:
             self.save_image(stack)        
         
-        return stack
+        return
     
     
     def process_2Dt(self):
@@ -225,7 +225,7 @@ class App:
             print('Data saved')
         else:
             self.save_image(stack)               
-        return stack
+        return
     
     
     def process_3D(self,remapped_image):
@@ -332,7 +332,8 @@ class App:
 
 
     def save_image(self,file):
-        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 1))
+        print('compressing and saving data')
+        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 9))
         print('Data compressed and saved')
 
     def compress_image(self):
@@ -340,10 +341,10 @@ class App:
         try:
             with tiff.TiffFile(self.memap_filename) as tif:
                 data = tif.asarray()
-                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib', 1))
+                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib',9))
                 print('Data compressed and saved')
         except:
-            print('Data could not be loaded')
+            print('Data too large for compression, saving uncompressed data instead')
         return                        
 
 if __name__ == '__main__':
