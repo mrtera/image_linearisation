@@ -170,14 +170,12 @@ class App:
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(int(self.snow_threshold*snow_value)))
             for timestep in range(self.t_dim):
                 stack[timestep] = self.melt_snow(stack[timestep],snow_value)
-                zoomed_image = sp.ndimage.zoom(stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-                stack[timestep] = self.remapping3D(stack[timestep],zoomed_image)
+                stack[timestep] = self.remapping3D(stack[timestep])
                 print('Volume '+str(timestep)+' corrected')
         
         else:
             for timestep in np.arange(self.t_dim): 
-                zoomed_image = sp.ndimage.zoom(stack[timestep],(1,self.upsampling_factor_Y, 1),order=1)
-                stack[timestep] = self.remapping3D(stack[timestep],zoomed_image)
+                stack[timestep] = self.remapping3D(stack[timestep])
                 print('Volume '+str(timestep)+' corrected')
         
         if memmap == True:
@@ -227,8 +225,7 @@ class App:
     
     
     def process_3D(self,data):
-        zoomed_image = sp.ndimage.zoom(data,(1,self.upsampling_factor_Y, 1),order=1)
-        remapped_image = self.remapping3D(data,zoomed_image)
+        remapped_image = self.remapping3D(data)
         return remapped_image
                    
 
@@ -238,12 +235,40 @@ class App:
 
 
 ### Remapping ###
-    def remapping3D(self,remapped_image,zoomed_image): 
-        
-        # correct all slices in Y 
+    def remapping3D(self,remapped_image): 
+
+        # correct all slices 
         z_dim=remapped_image.shape[0]
-        for plane in np.arange(z_dim):
-            remapped_image[plane] = self.remapping2D(remapped_image[plane])
+        # for plane in np.arange(z_dim):
+        #     remapped_image[plane] = self.remapping2D(remapped_image[plane])
+        if self.do_Y_correction.get() == True:
+            sum_correction_factor = 0
+            zoomed_image = sp.ndimage.zoom(remapped_image,(1,self.upsampling_factor_Y, 1),order=1)
+            upsampling_factor = self.upsampling_factor_Y
+            dim=remapped_image.shape[1]
+            dim_upsampled = zoomed_image.shape[1]
+            for row in np.arange(dim):
+                correction_factor = self.correction_factor(row,dim)
+                sum_correction_factor += correction_factor
+                upsampled_row = np.round(dim_upsampled*sum_correction_factor).astype(int)
+                bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
+                remapped_image[:,row] = np.mean(zoomed_image[:,upsampled_row:upsampled_row+bins],axis=0)
+
+        if self.do_x_correction.get() == True:
+            remapped_image = np.swapaxes(remapped_image,1,2)
+            sum_correction_factor = 0
+            zoomed_image = sp.ndimage.zoom(remapped_image,(1,self.upsampling_factor_X,),order=1)
+            upsampling_factor = self.upsampling_factor_X
+            dim=remapped_image.shape[1]
+            dim_upsampled = zoomed_image.shape[1]
+            for row in np.arange(dim):
+                correction_factor = self.correction_factor(row,dim)
+                sum_correction_factor += correction_factor
+                upsampled_row = np.round(dim_upsampled*sum_correction_factor).astype(int)
+                bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
+                remapped_image[:,row] = np.mean(zoomed_image[:,upsampled_row:upsampled_row+bins],axis=0)
+            remapped_image = np.swapaxes(remapped_image,1,2)
+
 
         # correct Volume in Z
         if self.do_z_correction.get() == True:
