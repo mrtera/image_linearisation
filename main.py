@@ -252,7 +252,7 @@ class App:
                 sum_correction_factor += correction_factor
                 upsampled_row = np.round(dim_upsampled*sum_correction_factor).astype(int)
                 bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
-                remapped_image[:,row] = np.mean(zoomed_image[:,upsampled_row:upsampled_row+bins],axis=0)
+                remapped_image[:,row] = np.mean(zoomed_image[:,upsampled_row:upsampled_row+bins],axis=1)
 
         if self.do_x_correction.get() == True:
             remapped_image = np.swapaxes(remapped_image,1,2)
