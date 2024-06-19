@@ -132,19 +132,20 @@ class App:
 
     def memap(self):
             # create a memmory mapped array to enable processing of larger than RAM files:
-            filename = self.filename.removesuffix('.tif')+'_processed'+'.tif'
+            self.memap_filename = self.filename.removesuffix('.tif')+'_processed'+'.tif'
             shape = self.tif_shape
             print('Creating memap file, might take a while, shape: '+str(shape))
             dtype = self.dtype
             # create an empty OME-TIFF file
-            tiff.imwrite(filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
+            tiff.imwrite(self.memap_filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
 
             # memory map numpy array to data in OME-TIFF file
-            memap_stack = tiff.memmap(filename)
-            return memap_stack, filename
+            memap_stack = tiff.memmap(self.memap_filename)
+            return memap_stack
     
     
     def process_4D(self):
+        # Load data either in RAM or as memmap
         memmap = False
         try:
             with tiff.TiffFile(self.filename) as tif:
@@ -152,7 +153,7 @@ class App:
         except np.core._exceptions._ArrayMemoryError:
             memmap = True
             print('MemoryError: File too large for RAM, processing with memmap')
-            stack, new_name = self.memap()
+            stack = self.memap()
             # write data to memory-mapped array    
             print('Writing data to memory-mapped array')
             with tiff.TiffFile(self.filename) as tif:
@@ -163,24 +164,26 @@ class App:
                         print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
             print('Data written to memory-mapped array') 
         
-        # process data
         # melt snow if selected
         if self.melt == True:
             snow_value = np.amax(stack)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(int(self.snow_threshold*snow_value)))
+            print('Remvoing snow above '+str(self.snow_threshold*snow_value))
             for timestep in range(self.t_dim):
                 stack[timestep] = self.melt_snow(stack[timestep],snow_value)
-                stack[timestep] = self.remapping3D(stack[timestep])
-                print('Volume '+str(timestep)+' corrected')
-        
-        else:
-            for timestep in np.arange(self.t_dim): 
-                stack[timestep] = self.remapping3D(stack[timestep])
-                print('Volume '+str(timestep)+' corrected')
+                if timestep % 50 == 0:
+                    print('removed snow in '+str(timestep)+' Volumes')
+            print('Snow removed')
+
+        # process data
+        print('correcting for sin distorsion')
+        for timestep in range(self.t_dim):
+            stack[timestep] = self.process_3D(stack[timestep])
+            print('Volume '+str(timestep)+' corrected')
         
         if memmap == True:
             stack.flush()
-        self.compress_image(new_name)        
+        else:
+            self.save_image(stack)        
         
         return stack
     
@@ -191,7 +194,7 @@ class App:
             with tiff.TiffFile(self.filename) as tif:
                 stack = tif.asarray()
         except np.core._exceptions._ArrayMemoryError:
-            stack, new_name = self.memap()
+            stack = self.memap()
             # write data to memory-mapped array
             print('Writing data to memory-mapped array')
             with tiff.TiffFile(self.filename) as tif:
@@ -219,13 +222,23 @@ class App:
 
         if memmap == True:
             stack.flush() 
-
-        self.compress_image(new_name)               
+            print('Data saved')
+        else:
+            self.save_image(stack)               
         return stack
     
     
-    def process_3D(self,data):
-        remapped_image = self.remapping3D(data)
+    def process_3D(self,remapped_image):
+        if self.do_z_correction.get() == True:
+            remapped_image = self.remapping3D(remapped_image,self.upsampling_factor_Z)
+        if self.do_Y_correction.get() == True:
+            remapped_image = np.swapaxes(remapped_image,0,1)
+            remapped_image = self.remapping3D(remapped_image,self.upsampling_factor_Y)
+            remapped_image = np.swapaxes(remapped_image,0,1)
+        if self.do_x_correction.get() == True:
+            remapped_image = np.swapaxes(remapped_image,0,2)
+            remapped_image = self.remapping3D(remapped_image,self.upsampling_factor_X)
+            remapped_image = np.swapaxes(remapped_image,0,2)
         return remapped_image
                    
 
@@ -235,58 +248,20 @@ class App:
 
 
 ### Remapping ###
-    def remapping3D(self,remapped_image): 
+    def remapping3D(self,remapped_image,upsampling_factor):        
+        dim=remapped_image.shape[0]
+        sum_correction_factor = 0
+        zoomed_image = sp.ndimage.zoom(remapped_image,(upsampling_factor, 1, 1),order=1)
+        dim_upsampled = zoomed_image.shape[0]
 
-        # correct all slices 
-        z_dim=remapped_image.shape[0]
-        # for plane in np.arange(z_dim):
-        #     remapped_image[plane] = self.remapping2D(remapped_image[plane])
-        if self.do_Y_correction.get() == True:
-            sum_correction_factor = 0
-            zoomed_image = sp.ndimage.zoom(remapped_image,(1,self.upsampling_factor_Y, 1),order=1)
-            upsampling_factor = self.upsampling_factor_Y
-            dim=remapped_image.shape[1]
-            dim_upsampled = zoomed_image.shape[1]
-            for row in np.arange(dim):
-                correction_factor = self.correction_factor(row,dim)
-                sum_correction_factor += correction_factor
-                upsampled_row = np.round(dim_upsampled*sum_correction_factor).astype(int)
-                bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
-                remapped_image[:,row] = np.mean(zoomed_image[:,upsampled_row:upsampled_row+bins],axis=1)
-
-        if self.do_x_correction.get() == True:
-            remapped_image = np.swapaxes(remapped_image,1,2)
-            sum_correction_factor = 0
-            zoomed_image = sp.ndimage.zoom(remapped_image,(1,self.upsampling_factor_X,),order=1)
-            upsampling_factor = self.upsampling_factor_X
-            dim=remapped_image.shape[1]
-            dim_upsampled = zoomed_image.shape[1]
-            for row in np.arange(dim):
-                correction_factor = self.correction_factor(row,dim)
-                sum_correction_factor += correction_factor
-                upsampled_row = np.round(dim_upsampled*sum_correction_factor).astype(int)
-                bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
-                remapped_image[:,row] = np.mean(zoomed_image[:,upsampled_row:upsampled_row+bins],axis=0)
-            remapped_image = np.swapaxes(remapped_image,1,2)
-
-
-        # correct Volume in Z
-        if self.do_z_correction.get() == True:
-            sum_correction_factor_Z = 0
-            zoomed_image = sp.ndimage.zoom(remapped_image,(self.upsampling_factor_Z, 1, 1),order=1)
-            z_dim_upsampled = zoomed_image.shape[0]
-
-            for plane in np.arange(z_dim):
-                correction_factor_Z = self.correction_factor(plane,z_dim)
-                sum_correction_factor_Z += correction_factor_Z
-                upsampled_plane = np.round(z_dim_upsampled*sum_correction_factor_Z).astype(int)
-                bins= np.round(z_dim*self.upsampling_factor_Z*correction_factor_Z).astype(int)
-                remapped_image[plane] = np.mean(zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
-        else:
-            pass
-        
+        for plane in np.arange(dim):
+            correction_factor = self.correction_factor(plane,dim)
+            sum_correction_factor += correction_factor
+            upsampled_plane = np.round(dim_upsampled*sum_correction_factor).astype(int)
+            bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
+            remapped_image[plane] = np.mean(zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
         return remapped_image
-
+    
 
     def remapping2D(self,remapped_image):
         if self.do_Y_correction.get() == True:
@@ -357,14 +332,13 @@ class App:
 
 
     def save_image(self,file):
-        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed'+'.tif',file,compression=('zlib', 1))
-        print('Data saved')
+        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 1))
+        print('Data compressed and saved')
 
-    def compress_image(self,file):
-        print('Data saved')
+    def compress_image(self):
         print('attempting data compression')
         try:
-            with tiff.TiffFile(self.filename) as tif:
+            with tiff.TiffFile(self.memap_filename) as tif:
                 data = tif.asarray()
                 tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib', 1))
                 print('Data compressed and saved')
