@@ -318,20 +318,7 @@ class App:
         else:
             remapped_image = remapping1DCPU(remapped_image,zoomed_image,upsampling_factor)
         return remapped_image
-        
 
-    # def remapping1D(self,remapped_image,zoomed_image,upsampling_factor):
-    #     sum_correction_factor = 0
-    #     dim=remapped_image.shape[0]
-    #     dim_upsampled = zoomed_image.shape[0]
-    #     for row in np.arange(dim):
-    #         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-    #         sum_correction_factor += correction_factor
-    #         upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-    #         bins= int(np.round(dim*upsampling_factor*correction_factor))
-    #         remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0)
-    #     return remapped_image
-    
 
     def correction_factor(self,current_index, max_index):
         return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
