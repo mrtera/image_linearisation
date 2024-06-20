@@ -220,6 +220,7 @@ class App:
         
         if memmap == True:
             stack.flush()
+            print('Data saved')
         else:
             self.save_image(stack)        
         
