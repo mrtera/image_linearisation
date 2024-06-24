@@ -64,7 +64,7 @@ class App:
         self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
         self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.9, format='%.2f')
-        self.snow_threshold_spinbox.set(0.8)
+        self.snow_threshold_spinbox.set(0.5)
         self.snow_threshold_spinbox.grid(row=3, column=2)
 
         self.remove_snow = BooleanVar(value=True)
