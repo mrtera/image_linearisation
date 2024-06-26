@@ -100,7 +100,7 @@ class App:
 
     def open_image(self):
 
-        self.filename = filedialog.askopenfilename()
+        self.filename = filedialog.askopenfilename(filetypes=[('Tiff files', 'tif;tiff')])
         with tiff.TiffFile(self.filename) as tif:
             self.dim = tif.series[0].ndim
             self.tif_shape = tif.series[0].shape
@@ -360,7 +360,7 @@ class App:
 
     def save_image(self,file):
         print('compressing and saving data')
-        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 9))
+        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 6))
         print('Data compressed and saved')
 
     def compress_image(self):
@@ -368,7 +368,7 @@ class App:
         try:
             with tiff.TiffFile(self.memap_filename) as tif:
                 data = tif.asarray()
-                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib',9))
+                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib',6))
                 print('Data compressed and saved')
         except:
             print('Data too large for compression, saving uncompressed data instead')
