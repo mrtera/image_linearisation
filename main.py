@@ -212,11 +212,12 @@ class App:
 
         # process data
         print('correcting for sin distorsion')
-        for timestep in range(self.t_dim):
-            start=timer()
-            stack[timestep] = self.process_3D(stack[timestep])
-            print('Volume '+str(timestep)+' corrected')
-            print('Time elapsed: '+str(timer()-start))
+        if self.do_z_correction.get() or self.do_Y_correction.get() or self.do_x_correction.get():
+            for timestep in range(self.t_dim):
+                start=timer()
+                stack[timestep] = self.process_3D(stack[timestep])
+                print('Volume '+str(timestep)+' corrected')
+                print('Time elapsed: '+str(timer()-start))
         
         if memmap:
             stack.flush()
