@@ -327,11 +327,25 @@ class App:
 ### Snow removal ###
     def melt_snow(self,data,snow_value,D2=False):
         filtered_data = data
+        snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
+        x_dim = data.shape[-1]
+        extended_coords=[]
+
         if D2:
             kernel = np.ones((3,3))/6
             kernel[1,:]=0
-            snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
+
+            # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
+                extended_coords.append([flakes[0],flakes[1]-1])
+                extended_coords.append([flakes[0],flakes[1]])
+                extended_coords.append([flakes[0],flakes[1]+1])     
+            
+            # remove duplicates
+            new_snow_coords = list(set(map(tuple,extended_coords)))
+
+
+            for flakes in new_snow_coords:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]*kernel).astype('uint16')
                 except IndexError:
@@ -342,10 +356,20 @@ class App:
                     pass
 
         else:
-            snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
             kernel = np.ones((3,3,3))/24
             kernel[1,1,:]=0
+
+            # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
+                extended_coords.append([flakes[0],flakes[1],flakes[2]-1])
+                extended_coords.append([flakes[0],flakes[1],flakes[2]])
+                extended_coords.append([flakes[0],flakes[1],flakes[2]+1])
+            # remove duplicates
+            new_snow_coords = list(set(map(tuple,extended_coords)))
+
+            
+
+            for flakes in new_snow_coords:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2]*kernel).astype('uint16')
                 except IndexError:
