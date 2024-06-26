@@ -337,9 +337,16 @@ class App:
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
-                extended_coords.append([flakes[0],flakes[1]-1])
+                if flakes[0]-1 < 0:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1]-1])
+
                 extended_coords.append([flakes[0],flakes[1]])
-                extended_coords.append([flakes[0],flakes[1]+1])     
+                if flakes[0]+1 > x_dim-1:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1]+1])     
             
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
@@ -361,9 +368,15 @@ class App:
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
-                extended_coords.append([flakes[0],flakes[1],flakes[2]-1])
+                if flakes[2]-1 < 0:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1],flakes[2]-1])
                 extended_coords.append([flakes[0],flakes[1],flakes[2]])
-                extended_coords.append([flakes[0],flakes[1],flakes[2]+1])
+                if flakes[2]+1 > x_dim-1:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1],flakes[2]+1])
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
