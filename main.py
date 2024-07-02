@@ -63,8 +63,8 @@ class App:
         self.upsampling_factor_Z_spinbox.set(3)
         self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
-        self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.9, format='%.2f')
-        self.snow_threshold_spinbox.set(0.5)
+        self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
+        self.snow_threshold_spinbox.set(0.9)
         self.snow_threshold_spinbox.grid(row=3, column=2)
 
         self.remove_snow = BooleanVar(value=True)
@@ -361,6 +361,7 @@ class App:
                 except ValueError:
                     filtered_data[flakes] = 0
                 except RuntimeWarning:
+                
                     pass
 
         else:
@@ -398,7 +399,7 @@ class App:
 
     def save_image(self,file):
         print('compressing and saving data')
-        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 6))
+        tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6))
         print('Data compressed and saved')
 
     def compress_image(self):
@@ -406,7 +407,7 @@ class App:
         try:
             with tiff.TiffFile(self.memap_filename) as tif:
                 data = tif.asarray()
-                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib',6))
+                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),data,compression=('zlib',6))
                 print('Data compressed and saved')
         except:
             print('Data too large for compression, saving uncompressed data instead')
