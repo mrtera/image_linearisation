@@ -99,71 +99,76 @@ class App:
         self.remapped_image = None
 
     def open_image(self):
-
-        self.filename = filedialog.askopenfilename(filetypes=[('Tiff files', 'tif;tiff')])
-        with tiff.TiffFile(self.filename) as tif:
-            self.dim = tif.series[0].ndim
-            self.tif_shape = tif.series[0].shape
-            self.dtype = tif.pages[0].dtype
-            self.axes = tif.series[0].axes
-            if self.dim in [2,3,4] and not self.is2D_video.get():
-                print('Found Stack dimension: '+str(tif.series[0].shape))
-                try:
-                    print('t dim = '+str(tif.series[0].shape[-4]))
-                    self.t_dim = tif.series[0].shape[-4]
-                except IndexError:
-                    pass
-                try:
-                    print('Z dim = '+str(tif.series[0].shape[-3]))
-                    self.z_dim = tif.series[0].shape[-3]
-                except IndexError:
-                    pass
-                try:
+        filenames = filedialog.askopenfilenames(filetypes=[('Tiff files', 'tif;tiff')])
+        self.filenames = list(filenames)
+        for filename in self.filenames:
+            with tiff.TiffFile(filename) as tif:
+                dim = tif.series[0].ndim
+                print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
+                if dim in [2,3,4] and not self.is2D_video.get():
+                    try:
+                        print('t dim = '+str(tif.series[0].shape[-4]))
+                        self.t_dim = tif.series[0].shape[-4]
+                    except IndexError:
+                        pass
+                    try:
+                        print('Z dim = '+str(tif.series[0].shape[-3]))
+                        self.z_dim = tif.series[0].shape[-3]
+                    except IndexError:
+                        pass
+                    try:
+                        print('Y dim = '+str(tif.series[0].shape[-2]))
+                        print('X dim = '+str(tif.series[0].shape[-1]))
+                    except IndexError:
+                        pass
+                elif dim == 3 and not self.is2D_video.get():
+                    print('t dim = '+str(tif.series[0].shape[-3]))
                     print('Y dim = '+str(tif.series[0].shape[-2]))
                     print('X dim = '+str(tif.series[0].shape[-1]))
-                except IndexError:
-                    pass
-            elif self.dim == 3 and not self.is2D_video.get():
-                print('Found Stack dimension: '+str(tif.series[0].shape))
-                print('t dim = '+str(tif.series[0].shape[-3]))
-                print('Y dim = '+str(tif.series[0].shape[-2]))
-                print('X dim = '+str(tif.series[0].shape[-1]))
-            else:            
-                print('Image dimension not supported') 
+                else:            
+                    print('Image dimension not supported') 
 
 
     def upsample(self):
+        
         self.upsampling_factor_X = int(self.upsampling_factor_X_spinbox.get())
         self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
         self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
         self.is2D = self.is2D_video.get()
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
-        if self.dim in [2,3] and not self.is2D_video.get():
-
+        for self.filename in self.filenames:
             with tiff.TiffFile(self.filename) as tif:
-                data = tif.asarray()
-                if self.melt:
-                    snow_value = np.amax(data)
-            if self.dim == 2:
-                if self.melt:
-                    data = self.melt_snow(data,snow_value,D2=True)
-                remapped_image = self.process_2D(data)
-                self.save_image(remapped_image)
-            elif self.dim == 3:
-                if self.melt:
-                    data = self.melt_snow(data,snow_value)
-                remapped_image = self.process_3D(data)
-                self.save_image(remapped_image)
+                self.dim = tif.series[0].ndim
+                self.tif_shape = tif.series[0].shape
+                self.dtype = tif.pages[0].dtype
+                self.axes = tif.series[0].axes
 
-        elif self.dim == 4 and not self.is2D:
-            self.process_4D()
+            if self.dim in [2,3] and not self.is2D_video.get():
 
-        elif self.dim == 3 and self.is2D:
-            self.process_2Dt()
+                with tiff.TiffFile(self.filename) as tif:
+                    data = tif.asarray()
+                    if self.melt:
+                        snow_value = np.amax(data)
+                if self.dim == 2:
+                    if self.melt:
+                        data = self.melt_snow(data,snow_value,D2=True)
+                    remapped_image = self.process_2D(data)
+                    self.save_image(remapped_image)
+                elif self.dim == 3:
+                    if self.melt:
+                        data = self.melt_snow(data,snow_value)
+                    remapped_image = self.process_3D(data)
+                    self.save_image(remapped_image)
 
-        else:
-            print('Image dimension not supported!')
+            elif self.dim == 4 and not self.is2D:
+                self.process_4D()
+
+            elif self.dim == 3 and self.is2D:
+                self.process_2Dt()
+
+            else:
+                print('Image dimension not supported!')
         
 
     def memap(self):
