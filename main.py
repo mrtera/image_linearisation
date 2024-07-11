@@ -63,8 +63,8 @@ class App:
         self.upsampling_factor_Z_spinbox.set(3)
         self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
-        self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.01, format='%.2f')
-        self.snow_threshold_spinbox.set(0.1)
+        self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
+        self.snow_threshold_spinbox.set(0.9)
         self.snow_threshold_spinbox.grid(row=3, column=2)
 
         self.remove_snow = BooleanVar(value=True)
@@ -100,13 +100,13 @@ class App:
 
     def open_image(self):
 
-        self.filename = filedialog.askopenfilename()
+        self.filename = filedialog.askopenfilename(filetypes=[('Tiff files', 'tif;tiff')])
         with tiff.TiffFile(self.filename) as tif:
             self.dim = tif.series[0].ndim
             self.tif_shape = tif.series[0].shape
             self.dtype = tif.pages[0].dtype
             self.axes = tif.series[0].axes
-            if self.dim >=2 and self.dim <= 4 and self.is2D_video.get() == False:
+            if self.dim in [2,3,4] and not self.is2D_video.get():
                 print('Found Stack dimension: '+str(tif.series[0].shape))
                 try:
                     print('t dim = '+str(tif.series[0].shape[-4]))
@@ -123,7 +123,7 @@ class App:
                     print('X dim = '+str(tif.series[0].shape[-1]))
                 except IndexError:
                     pass
-            elif self.dim == 3 and self.is2D_video.get() == True:
+            elif self.dim == 3 and not self.is2D_video.get():
                 print('Found Stack dimension: '+str(tif.series[0].shape))
                 print('t dim = '+str(tif.series[0].shape[-3]))
                 print('Y dim = '+str(tif.series[0].shape[-2]))
@@ -139,27 +139,27 @@ class App:
         self.is2D = self.is2D_video.get()
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
-        if self.dim >=2 and self.dim <= 3 and self.is2D == False:
+        if self.dim in [2,3] and not self.is2D_video.get():
 
             with tiff.TiffFile(self.filename) as tif:
                 data = tif.asarray()
-                if self.melt == True:
+                if self.melt:
                     snow_value = np.amax(data)
             if self.dim == 2:
-                if self.melt == True:
+                if self.melt:
                     data = self.melt_snow(data,snow_value,D2=True)
                 remapped_image = self.process_2D(data)
                 self.save_image(remapped_image)
             elif self.dim == 3:
-                if self.melt == True:
+                if self.melt:
                     data = self.melt_snow(data,snow_value)
                 remapped_image = self.process_3D(data)
                 self.save_image(remapped_image)
 
-        elif self.dim == 4 and self.is2D == False:
+        elif self.dim == 4 and not self.is2D:
             self.process_4D()
 
-        elif self.dim == 3 and self.is2D == True:
+        elif self.dim == 3 and self.is2D:
             self.process_2Dt()
 
         else:
@@ -201,7 +201,7 @@ class App:
             print('Data written to memory-mapped array') 
         
         # melt snow if selected
-        if self.melt == True:
+        if self.melt:
             snow_value = np.amax(stack)
             print('Remvoing snow above '+str(self.snow_threshold*snow_value))
             for timestep in range(self.t_dim):
@@ -212,14 +212,16 @@ class App:
 
         # process data
         print('correcting for sin distorsion')
-        for timestep in range(self.t_dim):
-            start=timer()
-            stack[timestep] = self.process_3D(stack[timestep])
-            print('Volume '+str(timestep)+' corrected')
-            print('Time elapsed: '+str(timer()-start))
+        if self.do_z_correction.get() or self.do_Y_correction.get() or self.do_x_correction.get():
+            for timestep in range(self.t_dim):
+                start=timer()
+                stack[timestep] = self.process_3D(stack[timestep])
+                print('Volume '+str(timestep)+' corrected')
+                print('Time elapsed: '+str(timer()-start))
         
-        if memmap == True:
+        if memmap:
             stack.flush()
+            print('Data saved')
         else:
             self.save_image(stack)        
         
@@ -244,7 +246,7 @@ class App:
         
         # process data in memory-mapped array
         # melt snow 2D if selected
-        if self.melt == True:
+        if self.melt:
             snow_value = np.amax(stack)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(self.z_dim): 
@@ -258,7 +260,7 @@ class App:
                 stack[timestep] = self.process_2D(stack[timestep])
                 print('Frame '+str(timestep)+' corrected')
 
-        if memmap == True:
+        if memmap:
             stack.flush() 
             print('Data saved')
         else:
@@ -267,17 +269,17 @@ class App:
     
     
     def process_3D(self,remapped_image):
-        if self.do_z_correction.get() == True:
+        if self.do_z_correction.get():
             for images in range(remapped_image.shape[0]):
                 remapped_image[images] = self.remapping2D(remapped_image[images],self.upsampling_factor_Z)
 
-        if self.do_Y_correction.get() == True:
+        if self.do_Y_correction.get():
             remapped_image = np.swapaxes(remapped_image,0,1)
             for images in range(remapped_image.shape[0]):
                 remapped_image[images] = self.remapping2D(remapped_image[images],self.upsampling_factor_Y)
             remapped_image = np.swapaxes(remapped_image,0,1)
             
-        if self.do_x_correction.get() == True:
+        if self.do_x_correction.get():
             remapped_image = np.swapaxes(remapped_image,0,2)
             for images in range(remapped_image.shape[0]):
                 remapped_image[images] = self.remapping2D(remapped_image[images],self.upsampling_factor_X)
@@ -286,9 +288,9 @@ class App:
 
 
     def process_2D(self,data):
-        if self.do_Y_correction.get() == True:
+        if self.do_Y_correction.get():
             remapped_image = self.remapping2D(data,self.upsampling_factor_Y)
-        if self.do_x_correction.get() == True:
+        if self.do_x_correction.get():
             remapped_image = np.swapaxes(data,0,1)
             remapped_image = self.remapping2D(remapped_image,self.upsampling_factor_X)
             remapped_image = np.swapaxes(remapped_image,0,1)
@@ -313,25 +315,12 @@ class App:
 
     def remapping2D(self,remapped_image,upsampling_factor):
         zoomed_image = sp.ndimage.zoom(remapped_image,(upsampling_factor, 1),order=1)
-        if self.try_GPU.get() == True:
+        if self.try_GPU.get():
             remapped_image = remapping1DGPU(remapped_image,zoomed_image,upsampling_factor)
         else:
             remapped_image = remapping1DCPU(remapped_image,zoomed_image,upsampling_factor)
         return remapped_image
-        
 
-    # def remapping1D(self,remapped_image,zoomed_image,upsampling_factor):
-    #     sum_correction_factor = 0
-    #     dim=remapped_image.shape[0]
-    #     dim_upsampled = zoomed_image.shape[0]
-    #     for row in np.arange(dim):
-    #         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-    #         sum_correction_factor += correction_factor
-    #         upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-    #         bins= int(np.round(dim*upsampling_factor*correction_factor))
-    #         remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0)
-    #     return remapped_image
-    
 
     def correction_factor(self,current_index, max_index):
         return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
@@ -339,11 +328,32 @@ class App:
 ### Snow removal ###
     def melt_snow(self,data,snow_value,D2=False):
         filtered_data = data
-        if D2 == True:
+        snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
+        x_dim = data.shape[-1]
+        extended_coords=[]
+
+        if D2:
             kernel = np.ones((3,3))/6
             kernel[1,:]=0
-            snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
+
+            # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
+                if flakes[0]-1 < 0:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1]-1])
+
+                extended_coords.append([flakes[0],flakes[1]])
+                if flakes[0]+1 > x_dim-1:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1]+1])     
+            
+            # remove duplicates
+            new_snow_coords = list(set(map(tuple,extended_coords)))
+
+
+            for flakes in new_snow_coords:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]*kernel).astype('uint16')
                 except IndexError:
@@ -351,13 +361,30 @@ class App:
                 except ValueError:
                     filtered_data[flakes] = 0
                 except RuntimeWarning:
+                
                     pass
 
         else:
-            snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
             kernel = np.ones((3,3,3))/24
             kernel[1,1,:]=0
+
+            # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
+                if flakes[2]-1 < 0:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1],flakes[2]-1])
+                extended_coords.append([flakes[0],flakes[1],flakes[2]])
+                if flakes[2]+1 > x_dim-1:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1],flakes[2]+1])
+            # remove duplicates
+            new_snow_coords = list(set(map(tuple,extended_coords)))
+
+            
+
+            for flakes in new_snow_coords:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2]*kernel).astype('uint16')
                 except IndexError:
@@ -372,7 +399,7 @@ class App:
 
     def save_image(self,file):
         print('compressing and saving data')
-        tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',file,compression=('zlib', 9))
+        tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6))
         print('Data compressed and saved')
 
     def compress_image(self):
@@ -380,10 +407,10 @@ class App:
         try:
             with tiff.TiffFile(self.memap_filename) as tif:
                 data = tif.asarray()
-                tiff.imwrite(self.filename.removesuffix('.tif')+'_processed_compressed'+'.tif',data,compression=('zlib',9))
+                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),data,compression=('zlib',6))
                 print('Data compressed and saved')
         except:
-            print('Data too large for compression, saving uncompressed data instead')
+            print('Data too large for RAM, saving uncompressed data instead')
         return                        
 
 if __name__ == '__main__':
