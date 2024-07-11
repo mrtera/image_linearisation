@@ -138,6 +138,7 @@ class App:
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
         for self.filename in self.filenames:
+            print('Processing: "'+self.filename+'"')
             with tiff.TiffFile(self.filename) as tif:
                 self.dim = tif.series[0].ndim
                 self.tif_shape = tif.series[0].shape
