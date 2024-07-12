@@ -96,7 +96,6 @@ class App:
         self.process = Button(root, text='Process Image', command=self.upsample)
         self.process.grid(row=5, column=2,)
 
-        self.remapped_image = None
 
     def open_image(self):
         filenames = filedialog.askopenfilenames(filetypes=[('Tiff files', 'tif;tiff')])
@@ -106,14 +105,13 @@ class App:
                 dim = tif.series[0].ndim
                 print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
                 if dim in [2,3,4] and not self.is2D_video.get():
+        
                     try:
                         print('t dim = '+str(tif.series[0].shape[-4]))
-                        self.t_dim = tif.series[0].shape[-4]
                     except IndexError:
                         pass
                     try:
                         print('Z dim = '+str(tif.series[0].shape[-3]))
-                        self.z_dim = tif.series[0].shape[-3]
                     except IndexError:
                         pass
                     try:
@@ -138,6 +136,7 @@ class App:
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
         for self.filename in self.filenames:
+            print('Processing: "'+self.filename+'"')
             with tiff.TiffFile(self.filename) as tif:
                 self.dim = tif.series[0].ndim
                 self.tif_shape = tif.series[0].shape
@@ -184,33 +183,41 @@ class App:
             memap_stack = tiff.memmap(self.memap_filename)
             return memap_stack
     
+    def create_new_array(self,data):
+        print(data.shape)
+
+    
     
     def process_4D(self):
         # Load data either in RAM or as memmap
         memmap = False
         try:
             with tiff.TiffFile(self.filename) as tif:
-                stack = tif.asarray()
+                data = tif.asarray()
+                t_dim = tif.series[0].shape[-4]
+                z_dim = tif.series[0].shape[-3]
         except np.core._exceptions._ArrayMemoryError:
             memmap = True
             print('MemoryError: File too large for RAM, processing with memmap')
-            stack = self.memap()
+            data = self.memap()
             # write data to memory-mapped array    
             print('Writing data to memory-mapped array')
             with tiff.TiffFile(self.filename) as tif:
-                for timepoints in range(self.t_dim):
-                    for volumes in range(self.z_dim):
-                        stack[timepoints,volumes] = tif.pages[timepoints*self.z_dim+volumes].asarray()
+                t_dim = tif.series[0].shape[-4]
+                z_dim = tif.series[0].shape[-3]
+                for timepoints in range(t_dim):
+                    for volumes in range(z_dim):
+                        data[timepoints,volumes] = tif.pages[timepoints*z_dim+volumes].asarray()
                     if timepoints % 50 == 0:
-                        print(str(timepoints) + '/' + str(self.t_dim) + ' Volumes written')
+                        print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
             print('Data written to memory-mapped array') 
         
         # melt snow if selected
         if self.melt:
-            snow_value = np.amax(stack)
+            snow_value = np.amax(data)
             print('Remvoing snow above '+str(self.snow_threshold*snow_value))
-            for timestep in range(self.t_dim):
-                stack[timestep] = self.melt_snow(stack[timestep],snow_value)
+            for timestep in range(t_dim):
+                data[timestep] = self.melt_snow(data[timestep],snow_value)
                 if timestep % 50 == 0:
                     print('removed snow in '+str(timestep)+' Volumes')
             print('Snow removed')
@@ -218,17 +225,17 @@ class App:
         # process data
         print('correcting for sin distorsion')
         if self.do_z_correction.get() or self.do_Y_correction.get() or self.do_x_correction.get():
-            for timestep in range(self.t_dim):
+            for timestep in range(t_dim):
                 start=timer()
-                stack[timestep] = self.process_3D(stack[timestep])
+                data[timestep] = self.process_3D(data[timestep])
                 print('Volume '+str(timestep)+' corrected')
                 print('Time elapsed: '+str(timer()-start))
         
         if memmap:
-            stack.flush()
+            data.flush()
             print('Data saved')
         else:
-            self.save_image(stack)        
+            self.save_image(data)        
         
         return
     
@@ -237,39 +244,41 @@ class App:
         memmap = False
         try:
             with tiff.TiffFile(self.filename) as tif:
-                stack = tif.asarray()
+                data = tif.asarray()
+                t_dim = tif.series[0].shape[-3]
         except np.core._exceptions._ArrayMemoryError:
-            stack = self.memap()
+            data = self.memap()
             # write data to memory-mapped array
             print('Writing data to memory-mapped array')
             with tiff.TiffFile(self.filename) as tif:
-                for timepoints in range(self.z_dim):
+                t_dim = tif.series[0].shape[-3]
+                for timepoints in range(t_dim):
                     if timepoints % 100 == 0:
-                        print(str(timepoints) + '/' + str(self.z_dim) + ' Frames written')
-                    stack[timepoints] = tif.pages[timepoints].asarray()
+                        print(str(timepoints) + '/' + str(t_dim) + ' Frames written')
+                    data[timepoints] = tif.pages[timepoints].asarray()
             print('Data written to memory-mapped array')
         
         # process data in memory-mapped array
         # melt snow 2D if selected
         if self.melt:
-            snow_value = np.amax(stack)
+            snow_value = np.amax(data)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
-            for timestep in np.arange(self.z_dim): 
-                stack[timestep] = self.melt_snow(stack[timestep],snow_value,D2=True)
-                stack[timestep] = self.process_2D(stack[timestep])
+            for timestep in np.arange(t_dim): 
+                data[timestep] = self.melt_snow(data[timestep],snow_value,D2=True)
+                data[timestep] = self.process_2D(data[timestep])
                 print('Frame '+str(timestep)+' corrected')
         
         else:
-            for timestep in np.arange(self.z_dim): 
-                stack[timestep] = self.melt_snow(stack[timestep],snow_value,D2=True)
-                stack[timestep] = self.process_2D(stack[timestep])
+            for timestep in np.arange(t_dim): 
+                data[timestep] = self.melt_snow(data[timestep],snow_value,D2=True)
+                data[timestep] = self.process_2D(data[timestep])
                 print('Frame '+str(timestep)+' corrected')
 
         if memmap:
-            stack.flush() 
+            data.flush() 
             print('Data saved')
         else:
-            self.save_image(stack)               
+            self.save_image(data)               
         return
     
     
@@ -303,19 +312,19 @@ class App:
 
 
 ### Remapping ###
-    def remapping3D(self,remapped_image,upsampling_factor):        
-        dim=remapped_image.shape[0]
-        sum_correction_factor = 0
-        zoomed_image = sp.ndimage.zoom(remapped_image,(upsampling_factor, 1, 1),order=1)
-        dim_upsampled = zoomed_image.shape[0]
+    # def remapping3D(self,remapped_image,upsampling_factor):        
+    #     dim=remapped_image.shape[0]
+    #     sum_correction_factor = 0
+    #     zoomed_image = sp.ndimage.zoom(remapped_image,(upsampling_factor, 1, 1),order=1)
+    #     dim_upsampled = zoomed_image.shape[0]
 
-        for plane in np.arange(dim):
-            correction_factor = self.correction_factor(plane,dim)
-            sum_correction_factor += correction_factor
-            upsampled_plane = np.round(dim_upsampled*sum_correction_factor).astype(int)
-            bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
-            remapped_image[plane] = np.mean(zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
-        return remapped_image
+    #     for plane in np.arange(dim):
+    #         correction_factor = self.correction_factor(plane,dim)
+    #         sum_correction_factor += correction_factor
+    #         upsampled_plane = np.round(dim_upsampled*sum_correction_factor).astype(int)
+    #         bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
+    #         remapped_image[plane] = np.mean(zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
+    #     return remapped_image
     
 
     def remapping2D(self,remapped_image,upsampling_factor):
@@ -327,8 +336,8 @@ class App:
         return remapped_image
 
 
-    def correction_factor(self,current_index, max_index):
-        return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
+    # def correction_factor(self,current_index, max_index):
+    #     return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
 
 ### Snow removal ###
     def melt_snow(self,data,snow_value,D2=False):
