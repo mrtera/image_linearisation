@@ -183,55 +183,6 @@ class App:
             memap_stack = tiff.memmap(self.memap_filename)
             return memap_stack
     
-    def create_new_array(self,data): #Prelimenary work to rescale for aspact ratio
-        if not self.is_2D_video:
-            x_dim = data.shape[-1]
-            y_dim = data.shape[-2]
-            try:
-                z_dim = data.shape[-3]
-            except IndexError:
-                pass
-            try:
-                t_dim = data.shape[-4]
-            except IndexError:
-                pass
-        else:
-            x_dim = data.shape[-1]
-            y_dim = data.shape[-2]
-            t_dim = data.shape[-3]
-        
-        if self.do_x_correction.get():
-            x_dim = int(x_dim*2/np.pi)
-        if self.do_y_correction.get():
-            y_dim = int(y_dim*2/np.pi)
-        if self.do_z_correction.get():
-            z_dim = int(z_dim*2/np.pi)
-
-
-        if self.is_single_frame:
-            shape = (y_dim,x_dim)
-            new_array = np.zeros(shape,dtype='uint16')
-        if self.is_single_volume:
-            shape = (z_dim,y_dim,x_dim)
-            new_array = np.zeros(shape,dtype='uint16')   
-
-        if self.is_2D_video:
-            shape = (t_dim,y_dim,x_dim)
-            try:
-                new_array = np.zeros((t_dim,y_dim,x_dim),dtype='uint16')  
-            except np.core._exceptions._ArrayMemoryError:
-                print('MemoryError: File too large for RAM, processing with memmap')
-                new_array = self.memap(shape,'_aspect_ratio_corrected')
-                
-        if self.is_3D_video:
-            shape = (t_dim,z_dim,y_dim,x_dim)
-            try:
-                new_array = np.zeros((t_dim,z_dim,y_dim,x_dim),dtype='uint16')
-            except np.core._exceptions._ArrayMemoryError:
-                print('MemoryError: File too large for RAM, processing with memmap')
-                new_array = self.memap(shape,'_aspect_ratio_corrected')
-        return new_array
-    
     
     def process_4D(self):
         # Load data either in RAM or as memmap
