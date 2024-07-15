@@ -157,15 +157,17 @@ class App:
                         snow_value = np.amax(data)
                 if self.dim == 2:
                     self.is_single_frame = True
+                    new_shape = self.create_new_array(data)
                     if self.melt:
                         data = self.melt_snow(data,snow_value,D2=True)
-                    remapped_image = self.process_2D(data)
+                    remapped_image = self.process_2D(data,new_shape)
                     self.save_image(remapped_image)
                 elif self.dim == 3:
                     self.is_single_volume = True
+                    new_shape = self.create_new_array(data)
                     if self.melt:
                         data = self.melt_snow(data,snow_value)
-                    remapped_image = self.process_3D(data)
+                    remapped_image = self.process_3D(data,new_shape)
                     self.save_image(remapped_image)
 
             elif self.dim == 4 and not self.is2D:
@@ -376,7 +378,6 @@ class App:
     #remapped image should be the processed image
 
     def process_2D(self,data,shape_array):
-        shape_array = remapped_image
 
         if self.do_y_correction.get():
             remapped_image = self.remapping2D(data,shape_array,self.upsampling_factor_Y)
