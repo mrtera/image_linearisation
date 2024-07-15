@@ -10,7 +10,7 @@ from numba import jit, prange
 from timeit import default_timer as timer   
 
 @jit()    #for GPU acceleration
-def remapping1DGPU(remapped_image,zoomed_image,upsampling_factor):
+def remapping1DGPU(remapped_image,zoomed_image,upsampling_factor,new_dim):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
     dim_upsampled = zoomed_image.shape[0]
@@ -25,7 +25,7 @@ def remapping1DGPU(remapped_image,zoomed_image,upsampling_factor):
         
     return remapped_image
 
-def remapping1DCPU(remapped_image,zoomed_image,upsampling_factor):
+def remapping1DCPU(remapped_image,zoomed_image,upsampling_factor,new_dim):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
     dim_upsampled = zoomed_image.shape[0]
@@ -184,6 +184,57 @@ class App:
             return memap_stack
     
     
+    def create_new_array(self,data): #Prelimenary work to rescale for aspact ratio
+        if not self.is_2D_video:
+            x_dim = data.shape[-1]
+            y_dim = data.shape[-2]
+            try:
+                z_dim = data.shape[-3]
+            except IndexError:
+                pass
+            try:
+                t_dim = data.shape[-4]
+            except IndexError:
+                pass
+        else:
+            x_dim = data.shape[-1]
+            y_dim = data.shape[-2]
+            t_dim = data.shape[-3]
+        
+        if self.do_x_correction.get():
+            x_dim = int(x_dim*2/np.pi)
+        if self.do_y_correction.get():
+            y_dim = int(y_dim*2/np.pi)
+        if self.do_z_correction.get():
+            z_dim = int(z_dim*2/np.pi)
+
+
+        if self.is_single_frame:
+            shape = (y_dim,x_dim)
+            new_array = np.zeros(shape,dtype='uint16')
+        if self.is_single_volume:
+            shape = (z_dim,y_dim,x_dim)
+            new_array = np.zeros(shape,dtype='uint16')   
+
+        if self.is_2D_video:
+            self.shape = (t_dim,y_dim,x_dim)
+            try:
+                new_array = np.zeros((t_dim,y_dim,x_dim),dtype='uint16')  
+            except np.core._exceptions._ArrayMemoryError:
+                print('MemoryError: File too large for RAM, processing with memmap')
+                new_array = self.memap(self.shape,'_aspect_ratio_corrected')
+                
+        if self.is_3D_video:
+            self.shape = (t_dim,z_dim,y_dim,x_dim)
+            try:
+                new_array = np.zeros((t_dim,z_dim,y_dim,x_dim),dtype='uint16')
+            except np.core._exceptions._ArrayMemoryError:
+                print('MemoryError: File too large for RAM, processing with memmap')
+                new_array = self.memap(self.shape,'_aspect_ratio_corrected')
+        return new_array
+
+    
+    
     def process_4D(self):
         # Load data either in RAM or as memmap
         memmap = False
@@ -261,14 +312,10 @@ class App:
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value,D2=True)
-                data[timestep] = self.process_2D(data[timestep])
-                print('Frame '+str(timestep)+' corrected')
-        
-        else:
-            for timestep in np.arange(t_dim): 
-                data[timestep] = self.melt_snow(data[timestep],snow_value,D2=True)
-                data[timestep] = self.process_2D(data[timestep])
-                print('Frame '+str(timestep)+' corrected')
+                
+        for timestep in np.arange(t_dim): 
+            data[timestep] = self.process_2D(data[timestep])
+            print('Frame '+str(timestep)+' corrected')
 
         if memmap:
             data.flush() 
@@ -276,6 +323,7 @@ class App:
         else:
             self.save_image(data)               
         return
+    
     
     def process_3D(self,remapped_image):
         if self.do_y_correction.get():
@@ -295,15 +343,23 @@ class App:
             remapped_image = np.swapaxes(remapped_image,0,2)
         return remapped_image
 
-#   NEEDS testing!!!
-    def process_2D(self,data):
+    #Needs to get the data and needs to know the new x and y dimensions
+    #shape_array is 0 array in shape of image after processing
+    #remapped image should be the processed image
+
+    def process_2D(self,data,shape_array,new_dim):
+        shape_array = remapped_image
+
         if self.do_y_correction.get():
-            data = self.remapping2D(data,self.upsampling_factor_Y)
+            remapped_image = self.remapping2D(data,shape_array,self.upsampling_factor_Y,new_dim)
+            data=remapped_image
+            
         if self.do_x_correction.get():
-            data = np.swapaxes(data,0,1)
-            data = self.remapping2D(data,self.upsampling_factor_X)
-            data = np.swapaxes(data,0,1)
-        return data
+            shape_array = np.swapaxes(shape_array,0,1)
+            remapped_image = np.swapaxes(data,0,1)
+            remapped_image = self.remapping2D(remapped_image,shape_array,self.upsampling_factor_X,new_dim)
+            remapped_image = np.swapaxes(remapped_image,0,1)
+        return remapped_image
 
 
 ### Remapping ###
@@ -322,12 +378,12 @@ class App:
     #     return remapped_image
     
 
-    def remapping2D(self,remapped_image,upsampling_factor):
-        zoomed_image = sp.ndimage.zoom(remapped_image,(upsampling_factor, 1),order=1)
+    def remapping2D(self,data,remapped_image,upsampling_factor,new_dim):
+        zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
         if self.try_GPU.get():
-            remapped_image = remapping1DGPU(remapped_image,zoomed_image,upsampling_factor)
+            remapped_image = remapping1DGPU(remapped_image,zoomed_image,upsampling_factor,new_dim)
         else:
-            remapped_image = remapping1DCPU(remapped_image,zoomed_image,upsampling_factor)
+            remapped_image = remapping1DCPU(remapped_image,zoomed_image,upsampling_factor,new_dim)
         return remapped_image
 
 
