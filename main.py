@@ -88,7 +88,7 @@ class App:
         self.do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
         self.do_z_correction_checkbox.grid(row=2, column=0)
 
-        self.try_GPU = BooleanVar(value=False)
+        self.try_GPU = BooleanVar(value=True)
         self.try_GPU_checkbox = Checkbutton(root, text='Try GPU', variable=self.try_GPU)
         self.try_GPU_checkbox.grid(row=5, column=1)
 
@@ -294,13 +294,19 @@ class App:
                 print('Volume '+str(timestep)+' corrected')
                 print('Time elapsed: '+str(timer()-start))
         
-        if memmap:
-            data.flush()
-            os.remove(self.memap_filename)
-            new_shape.flush()
-            print('Data saved')
+        if not np.any(new_shape):
+            if memmap:
+                data.flush()
+            else:    
+                self.save_image(data)
         else:
-            self.save_image(new_shape)     
+            if memmap:
+                data.flush()
+                os.remove(self.memap_filename)
+                new_shape.flush()
+                print('Data saved')
+            else:
+                self.save_image(new_shape)     
         
         return
     
@@ -375,8 +381,6 @@ class App:
 
     #Needs to get the data and needs to know the new x and y dimensions
     #shape_array is 0 array in shape of image after processing
-    #remapped image should be the processed image
-
     def process_2D(self,data,shape_array):
 
         if self.do_y_correction.get():
@@ -392,20 +396,6 @@ class App:
 
 
 ### Remapping ###
-    # def remapping3D(self,remapped_image,upsampling_factor):        
-    #     dim=remapped_image.shape[0]
-    #     sum_correction_factor = 0
-    #     zoomed_image = sp.ndimage.zoom(remapped_image,(upsampling_factor, 1, 1),order=1)
-    #     dim_upsampled = zoomed_image.shape[0]
-
-    #     for plane in np.arange(dim):
-    #         correction_factor = self.correction_factor(plane,dim)
-    #         sum_correction_factor += correction_factor
-    #         upsampled_plane = np.round(dim_upsampled*sum_correction_factor).astype(int)
-    #         bins= np.round(dim*upsampling_factor*correction_factor).astype(int)
-    #         remapped_image[plane] = np.mean(zoomed_image[upsampled_plane:upsampled_plane+bins],axis=0)
-    #     return remapped_image
-    
 
     def remapping2D(self,data,shape_array,upsampling_factor):
         zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
@@ -415,9 +405,6 @@ class App:
             remapped_image = remapping1DCPU(shape_array,zoomed_image,upsampling_factor)
         return remapped_image
 
-
-    # def correction_factor(self,current_index, max_index):
-    #     return 1/(np.pi*np.sqrt(-1*(current_index+1/2)*(current_index+1/2-max_index)))
 
 ### Snow removal ###
     def melt_snow(self,data,snow_value,D2=False):
@@ -432,16 +419,24 @@ class App:
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
+               
                 if flakes[0]-1 < 0:
                     pass
                 else:
                     extended_coords.append([flakes[0],flakes[1]-1])
 
                 extended_coords.append([flakes[0],flakes[1]])
+                
                 if flakes[0]+1 > x_dim-1:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1]+1])     
+                    extended_coords.append([flakes[0],flakes[1]+1])   
+
+                if flakes[0]+2 > x_dim-2:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1]+2])
+
             
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
