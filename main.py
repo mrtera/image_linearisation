@@ -79,9 +79,9 @@ class App:
         self.do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
         self.do_x_correction_checkbox.grid(row=0, column=0)
 
-        self.do_Y_correction = BooleanVar(value=True)
-        self.do_Y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_Y_correction)
-        self.do_Y_correction_checkbox.grid(row=1, column=0)
+        self.do_y_correction = BooleanVar(value=True)
+        self.do_y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_y_correction)
+        self.do_y_correction_checkbox.grid(row=1, column=0)
 
         self.do_z_correction = BooleanVar(value=True)
         self.do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
@@ -212,7 +212,7 @@ class App:
 
         # process data
         print('correcting for sin distorsion')
-        if self.do_z_correction.get() or self.do_Y_correction.get() or self.do_x_correction.get():
+        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
             for timestep in range(self.t_dim):
                 start=timer()
                 stack[timestep] = self.process_3D(stack[timestep])
@@ -273,7 +273,7 @@ class App:
             for images in range(remapped_image.shape[0]):
                 remapped_image[images] = self.remapping2D(remapped_image[images],self.upsampling_factor_Z)
 
-        if self.do_Y_correction.get():
+        if self.do_y_correction.get():
             remapped_image = np.swapaxes(remapped_image,0,1)
             for images in range(remapped_image.shape[0]):
                 remapped_image[images] = self.remapping2D(remapped_image[images],self.upsampling_factor_Y)
@@ -288,7 +288,7 @@ class App:
 
 
     def process_2D(self,data):
-        if self.do_Y_correction.get():
+        if self.do_y_correction.get():
             remapped_image = self.remapping2D(data,self.upsampling_factor_Y)
         if self.do_x_correction.get():
             remapped_image = np.swapaxes(data,0,1)
