@@ -99,7 +99,7 @@ class App:
 
 
     def open_image(self):
-        filenames = filedialog.askopenfilenames(filetypes=[("Tiff files", "tif;tiff")])
+        filenames = filedialog.askopenfilenames(filetypes=[("Tiff files","*.tif"),("Tiff files","*.tiff")])
         self.filenames = list(filenames)
         for filename in self.filenames:
             with tiff.TiffFile(filename) as tif:
@@ -182,22 +182,26 @@ class App:
                 print('Image dimension not supported!')
         
 
-    def memap(self,shape,name='_TEMP',temp=True):
+    def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
-            self.memap_filename = self.filename.removesuffix('.tif')+name+'.tif'
-            if temp:
-                self.temp_filename = self.memap_filename
+            memap_filename = self.filename.removesuffix('.tif')+name+'.tif'
+            if '_TEMP' in memap_filename:
+                self.in_memmap_filename = memap_filename
+            else:
+                self.out_memap_filename = memap_filename
+
             print('Creating memap file, might take a while, shape: '+str(shape))
             dtype = self.dtype
             # create an empty OME-TIFF file
-            tiff.imwrite(self.memap_filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
+            tiff.imwrite(memap_filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
 
             # memory map numpy array to data in OME-TIFF file
-            memap_stack = tiff.memmap(self.memap_filename)
+            memap_stack = tiff.memmap(memap_filename)
             return memap_stack
     
     
     def create_new_array(self,data): #Prelimenary work to rescale for aspact ratio
+        memmap = False
         if not self.is_2D_video:
             x_dim = data.shape[-1]
             y_dim = data.shape[-2]
@@ -232,24 +236,27 @@ class App:
         if self.is_2D_video:
             shape = (t_dim,y_dim,x_dim)
             try:
-                new_array = np.zeros((t_dim,y_dim,x_dim),dtype='uint16')  
+                new_array = np.zeros(shape,dtype='uint16')  
             except np.core._exceptions._ArrayMemoryError:
                 print('MemoryError: File too large for RAM, processing with memmap')
-                new_array = self.memap(shape,name='_aspect_ratio_corrected')
+                new_array = self.memap(shape,name='_processed')
+                memmap = True
                 
         if self.is_3D_video:
             shape = (t_dim,z_dim,y_dim,x_dim)
             try:
-                new_array = np.zeros((t_dim,z_dim,y_dim,x_dim),dtype='uint16')
+                new_array = np.zeros(shape,dtype='uint16')
             except np.core._exceptions._ArrayMemoryError:
                 print('MemoryError: File too large for RAM, processing with memmap')
-                new_array = self.memap(shape,name='_aspect_ratio_corrected')
-        return new_array
+                new_array = self.memap(shape,name='_processed')
+                memmap = True
+        return new_array, memmap
 
      
     def process_4D(self):
         # Load data either in RAM or as memmap
-        memmap = False
+        in_memmap = False
+        out_memmap = False
         try:
             with tiff.TiffFile(self.filename) as tif:
                 data = tif.asarray()
@@ -257,9 +264,9 @@ class App:
                 z_dim = tif.series[0].shape[-3]
                 print('Data loaded into RAM')
         except np.core._exceptions._ArrayMemoryError:
-            memmap = True
+            in_memmap = True
             print('MemoryError: File too large for RAM, writing original data to memmap')
-            data = self.memap(self.tif_shape,)
+            data = self.memap(self.tif_shape)
             # write data to memory-mapped array    
             print('Writing data to memory-mapped array')
             with tiff.TiffFile(self.filename) as tif:
@@ -274,6 +281,7 @@ class App:
 
         # melt snow if selected
         if self.melt:
+            print('getting snow value')
             snow_value = np.amax(data)
             print('Remvoing snow above '+str(self.snow_threshold*snow_value))
             for timestep in range(t_dim):
@@ -283,7 +291,7 @@ class App:
             print('Snow removed')
 
         print('Creating tif with corrected aspect ratio')
-        new_shape = self.create_new_array(data)
+        new_shape,out_memmap = self.create_new_array(data)
 
         # process data
         print('correcting for sin distorsion')
@@ -294,31 +302,19 @@ class App:
                 print('Volume '+str(timestep)+' corrected')
                 print('Time elapsed: '+str(timer()-start))
         
-        if not np.any(new_shape):
-            if memmap:
-                data.flush()
-            else:    
-                self.save_image(data)
-        else:
-            if memmap:
-                data.flush()
-                os.remove(self.memap_filename)
-                new_shape.flush()
-                print('Data saved')
-            else:
-                self.save_image(new_shape)     
-        
-        return
+        self.save_data(data,new_shape,in_memmap,out_memmap)    
     
     
     def process_2Dt(self):
-        memmap = False
+        in_memmap = False
+        out_memmap = False
         try:
             with tiff.TiffFile(self.filename) as tif:
                 data = tif.asarray()
                 t_dim = tif.series[0].shape[-3]
                 print('Data loaded into RAM')
         except np.core._exceptions._ArrayMemoryError:
+            in_memmap = True
             data = self.memap(self.tif_shape)
             # write data to memory-mapped array
             print('MemoryError: File too large for RAM, writing original data to memmap')
@@ -330,23 +326,21 @@ class App:
                     data[timepoints] = tif.pages[timepoints].asarray()
             print('Data written to memory-mapped array')
         
-        # process data in memory-mapped array
         # melt snow 2D if selected
         if self.melt:
             snow_value = np.amax(data)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value,D2=True)
+
+        # create new array with corrected aspect ratio
+        new_shape,out_memmap = self.create_new_array(data)
                 
         for timestep in np.arange(t_dim): 
-            data[timestep] = self.process_2D(data[timestep])
+            new_shape[timestep] = self.process_2D(data[timestep])
             print('Frame '+str(timestep)+' corrected')
 
-        if memmap:
-            data.flush() 
-            print('Data saved')
-        else:
-            self.save_image(data)               
+        self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
     
     
@@ -485,21 +479,45 @@ class App:
 
         return data
 
+    def save_data(self,data,new_shape,in_memmap,out_memmap):
+            if not np.any(new_shape):
+                if in_memmap:
+                    data.flush()
+                    path=self.in_memmap_filename.replace('_TEMP','_processed')
+                    os.rename(self.in_memmap_filename,path)
+                    self.compress_image(path)            
+                else:    
+                    self.save_image(data)
+            else:
+                if in_memmap or out_memmap:
+                    try:
+                        data.flush()
+                        os.remove(self.memap_filename)
+                    except:
+                        pass
+                    try:
+                        new_shape.flush()
+                        self.compress_image(self.out_memmap_filename)
+                    except:
+                        pass
+                else:
+                    self.save_image(new_shape)     
+            return
 
     def save_image(self,file):
         print('compressing and saving data')
         tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6))
         print('Data compressed and saved')
 
-    def compress_image(self):
+    def compress_image(self,path):
         print('attempting data compression')
         try:
-            with tiff.TiffFile(self.memap_filename) as tif:
+            with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
                 tiff.imwrite(self.filename.replace('.tif','_processed.tif'),data,compression=('zlib',6))
                 print('Data compressed and saved')
         except:
-            print('Data too large for RAM, saving uncompressed data instead')
+            print('Data too large for RAM, saved uncompressed data instead')
         return                        
 
 if __name__ == '__main__':
