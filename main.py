@@ -49,19 +49,19 @@ class App:
         self.label = Label(root, text='Upsampleing factor X:')
         self.label.grid(row=0, column=1)
         self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_X_spinbox.set(3)
+        self.upsampling_factor_X_spinbox.set(2)
         self.upsampling_factor_X_spinbox.grid(row=0, column=2)
 
         self.label = Label(root, text='Upsampleing factor Y:')
         self.label.grid(row=1, column=1)
         self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Y_spinbox.set(3)
+        self.upsampling_factor_Y_spinbox.set(2)
         self.upsampling_factor_Y_spinbox.grid(row=1, column=2)
         
         self.label = Label(root, text='Upsampleing factor Z:')
         self.label.grid(row=2, column=1)
         self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Z_spinbox.set(3)
+        self.upsampling_factor_Z_spinbox.set(2)
         self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
 
         self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
@@ -444,7 +444,6 @@ class App:
                 except ValueError:
                     filtered_data[flakes] = 0
                 except RuntimeWarning:
-                
                     pass
 
         else:
@@ -477,7 +476,7 @@ class App:
                 except RuntimeWarning:
                     pass
 
-        return data
+        return filtered_data
 
     def save_data(self,data,new_shape,in_memmap,out_memmap):
             if not np.any(new_shape):
