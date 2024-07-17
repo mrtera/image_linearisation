@@ -8,7 +8,15 @@ import tifffile as tiff
 import numpy as np
 import scipy as sp
 from numba import jit, prange
-from timeit import default_timer as timer   
+from timeit import default_timer as timer  
+
+#### Thinking about handing the whole 3D stack to GPU for processing
+# zoom will have to be done on the GPU or for the whole stack
+# pass which dimensions to correct, pass the new shape array
+
+@jit()
+def remapping3DGPU():
+    ...
 
 @jit()    #for GPU acceleration
 def remapping1DGPU(remapped_image,zoomed_image,upsampling_factor):
