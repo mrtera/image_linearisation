@@ -128,7 +128,7 @@ class App:
                         print('X dim = '+str(tif.series[0].shape[-1]))
                     except IndexError:
                         pass
-                elif dim == 3 and not self.is2D_video.get():
+                elif dim == 3 and self.is2D_video.get():
                     print('t dim = '+str(tif.series[0].shape[-3]))
                     print('Y dim = '+str(tif.series[0].shape[-2]))
                     print('X dim = '+str(tif.series[0].shape[-1]))
@@ -157,7 +157,7 @@ class App:
                 self.dtype = tif.pages[0].dtype
                 self.axes = tif.series[0].axes
 
-            if self.dim in [2,3] and not self.is2D_video.get():
+            if self.dim in [2,3] and not self.is2D:
 
                 with tiff.TiffFile(self.filename) as tif:
                     data = tif.asarray()
@@ -167,7 +167,7 @@ class App:
                     self.is_single_frame = True
                     new_shape = self.create_new_array(data)
                     if self.melt:
-                        data = self.melt_snow(data,snow_value,D2=True)
+                        data = self.melt_snow(data,snow_value)
                     remapped_image = self.process_2D(data,new_shape)
                     self.save_image(remapped_image)
                 elif self.dim == 3:
@@ -231,8 +231,10 @@ class App:
         if self.do_y_correction.get():
             y_dim = int(y_dim*2/np.pi)
         if self.do_z_correction.get():
-            z_dim = int(z_dim*2/np.pi)
-
+            try:
+                z_dim = int(z_dim*2/np.pi)
+            except UnboundLocalError:
+                pass
 
         if self.is_single_frame:
             shape = (y_dim,x_dim)
@@ -339,14 +341,15 @@ class App:
             snow_value = np.amax(data)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
-                data[timestep] = self.melt_snow(data[timestep],snow_value,D2=True)
+                data[timestep] = self.melt_snow(data[timestep],snow_value)
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
                 
         for timestep in np.arange(t_dim): 
-            new_shape[timestep] = self.process_2D(data[timestep])
-            print('Frame '+str(timestep)+' corrected')
+            new_shape[timestep] = self.process_2D(data[timestep],new_shape[0])
+            if timestep % 50 == 0:
+                print('Frame '+str(timestep)+' corrected')
 
         self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
@@ -409,32 +412,32 @@ class App:
 
 
 ### Snow removal ###
-    def melt_snow(self,data,snow_value,D2=False):
+    def melt_snow(self,data,snow_value):
         filtered_data = data
         snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
         x_dim = data.shape[-1]
         extended_coords=[]
 
-        if D2:
+        if data.ndim == 2:
             kernel = np.ones((3,3))/6
             kernel[1,:]=0
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
                
-                if flakes[0]-1 < 0:
+                if flakes[1]-1 < 0:
                     pass
                 else:
                     extended_coords.append([flakes[0],flakes[1]-1])
 
                 extended_coords.append([flakes[0],flakes[1]])
                 
-                if flakes[0]+1 > x_dim-1:
+                if flakes[1]+1 > x_dim-2:
                     pass
                 else:
                     extended_coords.append([flakes[0],flakes[1]+1])   
 
-                if flakes[0]+2 > x_dim-2:
+                if flakes[1]+2 > x_dim-3:
                     pass
                 else:
                     extended_coords.append([flakes[0],flakes[1]+2])
@@ -464,11 +467,18 @@ class App:
                     pass
                 else:
                     extended_coords.append([flakes[0],flakes[1],flakes[2]-1])
+
                 extended_coords.append([flakes[0],flakes[1],flakes[2]])
-                if flakes[2]+1 > x_dim-1:
+
+                if flakes[2]+1 > x_dim-2:
                     pass
                 else:
                     extended_coords.append([flakes[0],flakes[1],flakes[2]+1])
+                if flakes[2]+2 > x_dim-3:
+                    pass
+                else:
+                    extended_coords.append([flakes[0],flakes[1],flakes[2]+2])
+
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
