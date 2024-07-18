@@ -120,7 +120,7 @@ class App:
                         print('X dim = '+str(tif.series[0].shape[-1]))
                     except IndexError:
                         pass
-                elif dim == 3 and not self.is2D_video.get():
+                elif dim == 3 and self.is2D_video.get():
                     print('t dim = '+str(tif.series[0].shape[-3]))
                     print('Y dim = '+str(tif.series[0].shape[-2]))
                     print('X dim = '+str(tif.series[0].shape[-1]))
@@ -337,7 +337,7 @@ class App:
         new_shape,out_memmap = self.create_new_array(data)
                 
         for timestep in np.arange(t_dim): 
-            new_shape[timestep] = self.process_2D(data[timestep])
+            new_shape[timestep] = self.process_2D(data[timestep],new_shape[0])
             print('Frame '+str(timestep)+' corrected')
 
         self.save_data(data,new_shape,in_memmap,out_memmap)          
