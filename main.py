@@ -417,7 +417,6 @@ class App:
         snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
         x_dim = data.shape[-1]
         extended_coords=[]
-        print(x_dim)
         if data.ndim == 2:
             kernel = np.ones((3,3))/6
             kernel[1,:]=0
