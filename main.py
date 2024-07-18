@@ -417,7 +417,7 @@ class App:
         snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
         x_dim = data.shape[-1]
         extended_coords=[]
-
+        print(x_dim)
         if data.ndim == 2:
             kernel = np.ones((3,3))/6
             kernel[1,:]=0
@@ -425,36 +425,33 @@ class App:
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
                
-                if flakes[1]-1 < 0:
+                if flakes[-1]-1 < 0:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1]-1])
+                    extended_coords.append([flakes[-2],flakes[-1]-1])
 
-                extended_coords.append([flakes[0],flakes[1]])
+                extended_coords.append([flakes[-2],flakes[-1]])
                 
-                if flakes[1]+1 > x_dim-2:
+                if flakes[-1]+1 > x_dim-2:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1]+1])   
+                    extended_coords.append([flakes[-2],flakes[-1]+1])   
 
-                if flakes[1]+2 > x_dim-3:
+                if flakes[-1]+2 > x_dim-3:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1]+2])
+                    extended_coords.append([flakes[-2],flakes[-1]+2])
 
-            
             # remove duplicates
-        
             new_snow_coords = list(set(map(tuple,extended_coords)))
-
 
             for flakes in new_snow_coords:
                 try:
-                    filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]*kernel).astype('uint16')
+                    filtered_data[flakes] = np.sum(data[flakes[-2]-1:flakes[-2]+2:2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
                 except ValueError:
-                    pass# filtered_data[flakes] = 0
-                # except RuntimeWarning:
-                    # pass
+                    pass
+                except RuntimeWarning:
+                    pass
 
         else:
             kernel = np.ones((3,3,3))/24
@@ -462,36 +459,35 @@ class App:
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
-                if flakes[2]-1 < 0:
+                if flakes[-1]-1 < 0:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1],flakes[2]-1])
+                    extended_coords.append([flakes[-3],flakes[-2],flakes[-1]-1])
 
-                extended_coords.append([flakes[0],flakes[1],flakes[2]])
+                extended_coords.append([flakes[-3],flakes[-2],flakes[-1]])
 
-                if flakes[2]+1 > x_dim-2:
+                if flakes[-1]+1 > x_dim-2:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1],flakes[2]+1])
-                if flakes[2]+2 > x_dim-3:
+                    extended_coords.append([flakes[-3],flakes[-2],flakes[-1]+1])
+                if flakes[-1]+2 > x_dim-3:
                     pass
                 else:
-                    extended_coords.append([flakes[0],flakes[1],flakes[2]+2])
+                    extended_coords.append([flakes[-3],flakes[-2],flakes[-1]+2])
 
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
-            
-
             for flakes in new_snow_coords:
                 try:
-                    filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2]*kernel).astype('uint16')
+                    filtered_data[flakes] = np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
                 except ValueError:
                     pass
                 except RuntimeWarning:
                     pass
 
         return filtered_data
+    
 
     def save_data(self,data,new_shape,in_memmap,out_memmap):
             if not np.any(new_shape):
