@@ -444,18 +444,17 @@ class App:
 
             
             # remove duplicates
+        
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
 
             for flakes in new_snow_coords:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2:2,flakes[1]-1:flakes[1]+2]*kernel).astype('uint16')
-                except IndexError:
-                    filtered_data[flakes] = 0
                 except ValueError:
-                    filtered_data[flakes] = 0
-                except RuntimeWarning:
-                    pass
+                    pass# filtered_data[flakes] = 0
+                # except RuntimeWarning:
+                    # pass
 
         else:
             kernel = np.ones((3,3,3))/24
@@ -487,10 +486,8 @@ class App:
             for flakes in new_snow_coords:
                 try:
                     filtered_data[flakes] = np.sum(data[flakes[0]-1:flakes[0]+2,flakes[1]-1:flakes[1]+2,flakes[2]-1:flakes[2]+2]*kernel).astype('uint16')
-                except IndexError:
-                    filtered_data[flakes] = 0
                 except ValueError:
-                    filtered_data[flakes] = 0
+                    pass
                 except RuntimeWarning:
                     pass
 
