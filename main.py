@@ -52,58 +52,62 @@ class App:
     def __init__(self, root):
         self.root = root
         self.root.title('Image Processing')
-        self.root.resizable(True, True)
 
-        self.label = Label(root, text='Upsampleing factor X:')
-        self.label.grid(row=0, column=1)
+        label = Label(root, text='Upsampleing factor X:')
+        label.grid(row=0, column=1, columnspan=2)
         self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
         self.upsampling_factor_X_spinbox.set(2)
-        self.upsampling_factor_X_spinbox.grid(row=0, column=2)
+        self.upsampling_factor_X_spinbox.grid(row=0, column=3)
 
-        self.label = Label(root, text='Upsampleing factor Y:')
-        self.label.grid(row=1, column=1)
+        label = Label(root, text='Upsampleing factor Y:')
+        label.grid(row=1, column=1, columnspan=2)
         self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
         self.upsampling_factor_Y_spinbox.set(2)
-        self.upsampling_factor_Y_spinbox.grid(row=1, column=2)
+        self.upsampling_factor_Y_spinbox.grid(row=1, column=3)
         
-        self.label = Label(root, text='Upsampleing factor Z:')
-        self.label.grid(row=2, column=1)
+        label = Label(root, text='Upsampleing factor Z:')
+        label.grid(row=2, column=1, columnspan=2)
         self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
         self.upsampling_factor_Z_spinbox.set(2)
-        self.upsampling_factor_Z_spinbox.grid(row=2, column=2)
+        self.upsampling_factor_Z_spinbox.grid(row=2, column=3)
 
         self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
         self.snow_threshold_spinbox.set(0.9)
-        self.snow_threshold_spinbox.grid(row=3, column=2)
+        self.snow_threshold_spinbox.grid(row=3, column=3)
 
         self.remove_snow = BooleanVar(value=True)
-        self.remove_snow_checkbox = Checkbutton(root, text='remove snow above x*max', variable=self.remove_snow)
-        self.remove_snow_checkbox.grid(row=3, column=1)
+        remove_snow_checkbox = Checkbutton(root, text='remove snow above x*max', variable=self.remove_snow)
+        remove_snow_checkbox.grid(row=3, column=1, columnspan=2)
 
         self.is2D_video = BooleanVar(value=False)
-        self.is2D_video_checkbox = Checkbutton(root, text='2D Video', variable=self.is2D_video)
-        self.is2D_video_checkbox.grid(row=3, column=0,)
+        is2D_video_checkbox = Checkbutton(root, text='2D Video', variable=self.is2D_video)
+        is2D_video_checkbox.grid(row=3, column=0,)
 
         self.do_x_correction = BooleanVar(value=False)
-        self.do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
-        self.do_x_correction_checkbox.grid(row=0, column=0)
+        do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
+        do_x_correction_checkbox.grid(row=0, column=0)
 
         self.do_y_correction = BooleanVar(value=True)
-        self.do_y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_y_correction)
-        self.do_y_correction_checkbox.grid(row=1, column=0)
+        do_y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_y_correction)
+        do_y_correction_checkbox.grid(row=1, column=0)
 
         self.do_z_correction = BooleanVar(value=True)
-        self.do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
-        self.do_z_correction_checkbox.grid(row=2, column=0)
+        do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
+        do_z_correction_checkbox.grid(row=2, column=0)
 
         self.try_GPU = BooleanVar(value=True)
-        self.try_GPU_checkbox = Checkbutton(root, text='Try GPU', variable=self.try_GPU)
-        self.try_GPU_checkbox.grid(row=5, column=1)
+        try_GPU_checkbox = Checkbutton(root, text='Try GPU', variable=self.try_GPU)
+        try_GPU_checkbox.grid(row=5, column=1)
+        
+        self.rescale_image = BooleanVar(value=True)
+        rescale_image_checkbox = Checkbutton(root, text='rescale image', variable=self.rescale_image)
+        rescale_image_checkbox.grid(row=5, column=2)
 
-        self.open = Button(root, text='Open Image', command=self.open_image)
-        self.open.grid(row=5, column=0, columnspan=1)
-        self.process = Button(root, text='Process Image', command=self.upsample)
-        self.process.grid(row=5, column=2,)
+        open = Button(root, text='Open Image', command=self.open_image)
+        open.grid(row=5, column=0, columnspan=1)
+        
+        process = Button(root, text='Process Image', command=self.process)
+        process.grid(row=5, column=3)
 
 
     def open_image(self):
@@ -136,7 +140,7 @@ class App:
                     print('Image dimension not supported') 
 
 
-    def upsample(self):
+    def process(self):
         
         self.upsampling_factor_X = int(self.upsampling_factor_X_spinbox.get())
         self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
@@ -150,7 +154,7 @@ class App:
             self.is_2D_video = False
             self.is_3D_video = False
             
-            print('Processing: "'+self.filename+'"')
+            print("Processing: '"+self.filename+"'")
             with tiff.TiffFile(self.filename) as tif:
                 self.dim = tif.series[0].ndim
                 self.tif_shape = tif.series[0].shape
@@ -225,16 +229,17 @@ class App:
             x_dim = data.shape[-1]
             y_dim = data.shape[-2]
             t_dim = data.shape[-3]
-        
-        if self.do_x_correction.get():
-            x_dim = int(x_dim*2/np.pi)
-        if self.do_y_correction.get():
-            y_dim = int(y_dim*2/np.pi)
-        if self.do_z_correction.get():
-            try:
-                z_dim = int(z_dim*2/np.pi)
-            except UnboundLocalError:
-                pass
+ 
+        if self.rescale_image.get():
+            if self.do_x_correction.get():
+                x_dim = int(x_dim*2/np.pi)
+            if self.do_y_correction.get():
+                y_dim = int(y_dim*2/np.pi)
+            if self.do_z_correction.get():
+                try:
+                    z_dim = int(z_dim*2/np.pi)
+                except UnboundLocalError:
+                    pass
 
         if self.is_single_frame:
             shape = (y_dim,x_dim)
