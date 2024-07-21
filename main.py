@@ -93,7 +93,6 @@ def remapping3DGPU(data,shape_array,x,y,z):
                 bins= int(np.round(dim_original*correction_factor))
                 for pixel in range(data.shape[2]):      
                     remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-        data = np.swapaxes(data,0,1)
         remapped_image = np.swapaxes(remapped_image,0,1)
         data = remapped_image
 
