@@ -106,26 +106,26 @@ class App:
         label = Label(root, text='Upsampleing factor X:')
         label.grid(row=0, column=1, columnspan=2)
         self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_X_spinbox.set(2)
+        self.upsampling_factor_X_spinbox.set(1)
         self.upsampling_factor_X_spinbox.grid(row=0, column=3)
 
         label = Label(root, text='Upsampleing factor Y:')
         label.grid(row=1, column=1, columnspan=2)
         self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Y_spinbox.set(2)
+        self.upsampling_factor_Y_spinbox.set(1)
         self.upsampling_factor_Y_spinbox.grid(row=1, column=3)
         
         label = Label(root, text='Upsampleing factor Z:')
         label.grid(row=2, column=1, columnspan=2)
         self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Z_spinbox.set(2)
+        self.upsampling_factor_Z_spinbox.set(1)
         self.upsampling_factor_Z_spinbox.grid(row=2, column=3)
 
         self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
         self.snow_threshold_spinbox.set(0.9)
         self.snow_threshold_spinbox.grid(row=3, column=3)
 
-        self.remove_snow = BooleanVar(value=False)
+        self.remove_snow = BooleanVar(value=True)
         remove_snow_checkbox = Checkbutton(root, text='remove snow above x*max', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=3, column=1, columnspan=2)
 
