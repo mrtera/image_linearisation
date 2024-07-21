@@ -10,24 +10,74 @@ import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
 
-#### Thinking about handing the whole 3D stack to GPU for processing
-# zoom will have to be done on the GPU or for the whole stack
-# pass which dimensions to correct, pass the new shape array
 
 @jit()
-def remapping3DGPU():
-    ...
+def remapping3DGPU(data,shape_array,x,y,z):
+    if y:
+        dim=shape_array.shape[1]
+        dim_original = data.shape[1]
+        remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
+        for plane in range(data.shape[0]):
+            sum_correction_factor = 0
+            for row in range(dim):
+                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                sum_correction_factor += correction_factor
+                upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                bins= int(np.round(dim_original*correction_factor))
+                for pixel in range(data.shape[2]):      
+                    remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
+        data = remapped_image
+
+    if z:
+        data = np.swapaxes(data,0,1)
+        shape_array = np.swapaxes(shape_array,0,1)
+        dim=shape_array.shape[1]
+        dim_original = data.shape[1]
+        remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
+        for plane in range(data.shape[0]):
+            sum_correction_factor = 0
+            for row in np.arange(dim):
+                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                sum_correction_factor += correction_factor
+                upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                bins= int(np.round(dim_original*correction_factor))
+                for pixel in range(data.shape[2]):      
+                    remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
+        data = np.swapaxes(data,0,1)
+        shape_array = np.swapaxes(shape_array,0,1)
+        remapped_image = np.swapaxes(remapped_image,0,1)
+        data = remapped_image
+        
+    if x:
+            data = np.swapaxes(data,1,2)
+            shape_array = np.swapaxes(shape_array,1,2)
+            dim=shape_array.shape[1]
+            dim_original = data.shape[1]
+            remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
+            for plane in range(data.shape[0]):
+                sum_correction_factor = 0
+                for row in np.arange(dim):
+                    correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                    sum_correction_factor += correction_factor
+                    upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                    bins= int(np.round(dim_original*correction_factor))
+                    for pixel in range(data.shape[2]):      
+                        remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
+            remapped_image = np.swapaxes(remapped_image,1,2)
+            data = remapped_image
+
+    return data
 
 @jit()    #for GPU acceleration
-def remapping1DGPU(remapped_image,zoomed_image,upsampling_factor):
+def remapping1DGPU(remapped_image,zoomed_image):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
     dim_upsampled = zoomed_image.shape[0]
-    for row in np.arange(dim):
+    for row in range(dim):
         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
         upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-        bins= int(np.round(dim*upsampling_factor*correction_factor))
+        bins= int(np.round(dim_upsampled*correction_factor))
 
         for pixels in prange(remapped_image.shape[1]):                # GPU computed not a lot of gain 
             remapped_image[row,pixels] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins,pixels])
@@ -42,7 +92,7 @@ def remapping1DCPU(remapped_image,zoomed_image,upsampling_factor):
         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
         upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-        bins= int(np.round(dim*upsampling_factor*correction_factor))
+        bins= int(np.round(dim_upsampled*correction_factor))
 
         remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0) # CPU computed
     return remapped_image
@@ -75,7 +125,7 @@ class App:
         self.snow_threshold_spinbox.set(0.9)
         self.snow_threshold_spinbox.grid(row=3, column=3)
 
-        self.remove_snow = BooleanVar(value=True)
+        self.remove_snow = BooleanVar(value=False)
         remove_snow_checkbox = Checkbutton(root, text='remove snow above x*max', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=3, column=1, columnspan=2)
 
@@ -361,32 +411,52 @@ class App:
     
     
     def process_3D(self,data,shape_array):
-        if self.do_y_correction.get():
-            remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
-            for image in range(data.shape[0]):
-                remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_Y)
-            data = remapped_image
+        x = self.do_x_correction.get()
+        y = self.do_y_correction.get()
+        z = self.do_z_correction.get()
+        x_factor = 1
+        y_factor = 1
+        z_factor = 1
 
-        if self.do_z_correction.get():
-            data = np.swapaxes(data,0,1)
-            shape_array = np.swapaxes(shape_array,0,1)
-            remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
-            for image in range(data.shape[0]):
-                remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_Z)
-            data = np.swapaxes(data,0,1)
-            shape_array = np.swapaxes(shape_array,0,1)
-            remapped_image = np.swapaxes(remapped_image,0,1)
-            data = remapped_image
-            
-        if self.do_x_correction.get():
-            data = np.swapaxes(data,1,2)
-            shape_array = np.swapaxes(shape_array,1,2)
-            remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
-            for image in range(data.shape[0]):
-                remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_X)
-            data = np.swapaxes(data,1,2)
-            remapped_image = np.swapaxes(remapped_image,1,2)
-            data = remapped_image
+        if x:
+            x_factor = self.upsampling_factor_X
+        if y:
+            y_factor = self.upsampling_factor_Y
+        if z:
+            z_factor = self.upsampling_factor_Z
+
+        if self.try_GPU.get():
+            if x_factor > 1 or y_factor > 1 or z_factor > 1:
+                data = sp.ndimage.zoom(data,(z_factor,y_factor,x_factor),order=1)
+            data = remapping3DGPU(data,shape_array,x,y,z)
+
+        else:
+            if y:
+                remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
+                for image in range(data.shape[0]):
+                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],y_factor)
+                data = remapped_image
+
+            if z:
+                data = np.swapaxes(data,0,1)
+                shape_array = np.swapaxes(shape_array,0,1)
+                remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
+                for image in range(data.shape[0]):
+                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],z_factor)
+                data = np.swapaxes(data,0,1)
+                shape_array = np.swapaxes(shape_array,0,1)
+                remapped_image = np.swapaxes(remapped_image,0,1)
+                data = remapped_image
+                
+            if x:
+                data = np.swapaxes(data,1,2)
+                shape_array = np.swapaxes(shape_array,1,2)
+                remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
+                for image in range(data.shape[0]):
+                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],x_factor)
+                data = np.swapaxes(data,1,2)
+                remapped_image = np.swapaxes(remapped_image,1,2)
+                data = remapped_image
         return data
 
     #Needs to get the data and needs to know the new x and y dimensions
