@@ -12,92 +12,97 @@ from timeit import default_timer as timer
 
 @jit()
 def remapping3DGPU(data,shape_array,x,y,z):
-    ### upsampling by factor of 2 in selected directions ###
-    if y:
-        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-        for plane in range(zoomed_image.shape[0]):
-            for row in range(zoomed_image.shape[1]):
-                row_data = int(row/2)
-                for pixel in range(zoomed_image.shape[2]):
-                    if row % 2 == 0:
-                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                    else:
-                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-        data=zoomed_image
+    test = np.zeros((data.shape[-4],shape_array.shape[-3],shape_array.shape[-2],shape_array.shape[-1]),dtype='uint16')
+    for volume in range(data.shape[-4]):
+        buffer=data[volume]
 
-        dim=shape_array.shape[1]
-        dim_original = data.shape[1]
-        remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-        for plane in range(data.shape[0]):
-            sum_correction_factor = 0
-            for row in range(dim):
-                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-                sum_correction_factor += correction_factor
-                upsampled_row = int(np.round(dim_original*sum_correction_factor))
-                bins= int(np.round(dim_original*correction_factor))
-                for pixel in range(data.shape[2]):      
-                    remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-        data = remapped_image
+        ### upsampling by factor of 2 in selected directions ###
+        if y:
+            zoomed_image = np.zeros((buffer.shape[-3],buffer.shape[-2]*2,buffer.shape[-1]),dtype='uint16')
+            for plane in range(zoomed_image.shape[-3]):
+                for row in range(zoomed_image.shape[-2]):
+                    row_data = int(row/2)
+                    for pixel in range(zoomed_image.shape[-1]):
+                        if row % 2 == 0:
+                            zoomed_image[plane,row,pixel] = buffer[plane,row_data,pixel]
+                        else:
+                            zoomed_image[plane,row,pixel] = np.mean(buffer[plane,row_data:row_data+2,pixel])
+            buffer=zoomed_image
 
-    if x:
-        data = np.swapaxes(data,1,2)
-        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-        for plane in range(zoomed_image.shape[0]):
-            for row in range(zoomed_image.shape[1]):
-                row_data = int(row/2)
-                for pixel in range(zoomed_image.shape[2]):
-                    if row % 2 == 0:
-                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                    else:
-                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-        data=zoomed_image
+            dim=shape_array.shape[-2]
+            dim_original = buffer.shape[-2]
+            remapped_image = np.zeros((buffer.shape[-3],dim,buffer.shape[-1]),dtype='uint16')
+            for plane in range(buffer.shape[-3]):
+                sum_correction_factor = 0
+                for row in range(dim):
+                    correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                    sum_correction_factor += correction_factor
+                    upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                    bins= int(np.round(dim_original*correction_factor))
+                    for pixel in range(buffer.shape[-1]):      
+                        remapped_image[plane,row,pixel] = np.mean(buffer[plane,upsampled_row:upsampled_row+bins,pixel])
+            buffer = remapped_image
+
+        if x:
+            buffer = np.swapaxes(buffer,1,2)
+            zoomed_image = np.zeros((buffer.shape[-3],buffer.shape[-2]*2,buffer.shape[-1]),dtype='uint16')
+            for plane in range(zoomed_image.shape[-3]):
+                for row in range(zoomed_image.shape[-2]):
+                    row_data = int(row/2)
+                    for pixel in range(zoomed_image.shape[-1]):
+                        if row % 2 == 0:
+                            zoomed_image[plane,row,pixel] = buffer[plane,row_data,pixel]
+                        else:
+                            zoomed_image[plane,row,pixel] = np.mean(buffer[plane,row_data:row_data+2,pixel])
+            buffer=zoomed_image
+            
+            dim=shape_array.shape[-1]
+            dim_original = buffer.shape[-2]
+            remapped_image = np.zeros((buffer.shape[-3],dim,buffer.shape[-1]),dtype='uint16')
+            for plane in range(buffer.shape[-3]):
+                sum_correction_factor = 0
+                for row in np.arange(dim):
+                    correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                    sum_correction_factor += correction_factor
+                    upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                    bins= int(np.round(dim_original*correction_factor))
+                    for pixel in range(buffer.shape[-1]):      
+                        remapped_image[plane,row,pixel] = np.mean(buffer[plane,upsampled_row:upsampled_row+bins,pixel])
+            remapped_image = np.swapaxes(remapped_image,1,2)
+            buffer = np.swapaxes(buffer,1,2)
+            buffer = remapped_image     
         
-        dim=shape_array.shape[2]
-        dim_original = data.shape[1]
-        remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-        for plane in range(data.shape[0]):
-            sum_correction_factor = 0
-            for row in np.arange(dim):
-                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-                sum_correction_factor += correction_factor
-                upsampled_row = int(np.round(dim_original*sum_correction_factor))
-                bins= int(np.round(dim_original*correction_factor))
-                for pixel in range(data.shape[2]):      
-                    remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-        remapped_image = np.swapaxes(remapped_image,1,2)
-        data = np.swapaxes(data,1,2)
-        data = remapped_image     
-    
-    if z:
-        data = np.swapaxes(data,0,1)
-        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-        for plane in range(zoomed_image.shape[0]):
-            for row in range(zoomed_image.shape[1]):
-                row_data = int(row/2)
-                for pixel in range(zoomed_image.shape[2]):
-                    if row % 2 == 0:
-                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                    else:
-                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-        data=zoomed_image
+        if z:
+            buffer = np.swapaxes(buffer,0,1)
+            zoomed_image = np.zeros((buffer.shape[-3],buffer.shape[-2]*2,buffer.shape[-1]),dtype='uint16')
+            for plane in range(zoomed_image.shape[-3]):
+                for row in range(zoomed_image.shape[-2]):
+                    row_data = int(row/2)
+                    for pixel in range(zoomed_image.shape[-1]):
+                        if row % 2 == 0:
+                            zoomed_image[plane,row,pixel] = buffer[plane,row_data,pixel]
+                        else:
+                            zoomed_image[plane,row,pixel] = np.mean(buffer[plane,row_data:row_data+2,pixel])
+            buffer=zoomed_image
 
-        dim=shape_array.shape[0]
-        dim_original = data.shape[1]
-        remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-        for plane in range(data.shape[0]):
-            sum_correction_factor = 0
-            for row in np.arange(dim):
-                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-                sum_correction_factor += correction_factor
-                upsampled_row = int(np.round(dim_original*sum_correction_factor))
-                bins= int(np.round(dim_original*correction_factor))
-                for pixel in range(data.shape[2]):      
-                    remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-        data = np.swapaxes(data,0,1)
-        remapped_image = np.swapaxes(remapped_image,0,1)
-        data = remapped_image
+            dim=shape_array.shape[-3]
+            dim_original = buffer.shape[-2]
+            remapped_image = np.zeros((buffer.shape[-3],dim,buffer.shape[-1]),dtype='uint16')
+            for plane in range(buffer.shape[-3]):
+                sum_correction_factor = 0
+                for row in np.arange(dim):
+                    correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                    sum_correction_factor += correction_factor
+                    upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                    bins= int(np.round(dim_original*correction_factor))
+                    for pixel in range(buffer.shape[-1]):      
+                        remapped_image[plane,row,pixel] = np.mean(buffer[plane,upsampled_row:upsampled_row+bins,pixel])
+            buffer = np.swapaxes(buffer,0,1)
+            remapped_image = np.swapaxes(remapped_image,0,1)
+            buffer = remapped_image
+        test[volume]=buffer
 
-    return data
+    return test
 
 @jit()    #for GPU acceleration
 def remapping1DGPU(remapped_image,zoomed_image):
@@ -392,10 +397,11 @@ class App:
         # process data
         print('correcting for sin distorsion')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
-            for timestep in range(t_dim):
+            # for timestep in range(t_dim):
                 start=timer()
-                new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                print('Volume '+str(timestep)+' corrected')
+            #     new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
+                new_shape = remapping3DGPU(data,new_shape[0],self.do_x_correction.get(),self.do_y_correction.get(),self.do_z_correction.get())
+                # print('Volume '+str(timestep)+' corrected')
                 print('Time elapsed: '+str(timer()-start))
         
         self.save_data(data,new_shape,in_memmap,out_memmap)    
