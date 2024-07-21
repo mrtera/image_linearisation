@@ -448,28 +448,15 @@ class App:
         x = self.do_x_correction.get()
         y = self.do_y_correction.get()
         z = self.do_z_correction.get()
-        x_factor = 1
-        y_factor = 1
-        z_factor = 1
-
-        if x:
-            x_factor = self.upsampling_factor_X
-        if y:
-            y_factor = self.upsampling_factor_Y
-        if z:
-            z_factor = self.upsampling_factor_Z
 
         if self.try_GPU.get():
-            if x_factor > 1 or y_factor > 1 or z_factor > 1:
-                ...
-                # data = sp.ndimage.zoom(data,(z_factor,y_factor,x_factor),order=1)
             data = remapping3DGPU(data,shape_array,x,y,z)
 
         else:
             if y:
                 remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
                 for image in range(data.shape[0]):
-                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],y_factor)
+                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_Y)
                 data = remapped_image
 
             if z:
@@ -477,7 +464,7 @@ class App:
                 shape_array = np.swapaxes(shape_array,0,1)
                 remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
                 for image in range(data.shape[0]):
-                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],z_factor)
+                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_Z)
                 data = np.swapaxes(data,0,1)
                 shape_array = np.swapaxes(shape_array,0,1)
                 remapped_image = np.swapaxes(remapped_image,0,1)
@@ -488,7 +475,7 @@ class App:
                 shape_array = np.swapaxes(shape_array,1,2)
                 remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
                 for image in range(data.shape[0]):
-                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],x_factor)
+                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_X)
                 data = np.swapaxes(data,1,2)
                 remapped_image = np.swapaxes(remapped_image,1,2)
                 data = remapped_image
