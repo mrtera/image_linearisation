@@ -10,10 +10,21 @@ import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
 
-# upsampling should also be moved to GPU!
 @jit()
 def remapping3DGPU(data,shape_array,x,y,z):
+    ### upsampling by factor of 2 in selected directions ###
     if y:
+        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+        for plane in range(zoomed_image.shape[0]):
+            for row in range(zoomed_image.shape[1]):
+                row_data = int(row/2)
+                for pixel in range(zoomed_image.shape[2]):
+                    if row % 2 == 0:
+                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+                    else:
+                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+        data=zoomed_image
+
         dim=shape_array.shape[1]
         dim_original = data.shape[1]
         remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
@@ -28,10 +39,49 @@ def remapping3DGPU(data,shape_array,x,y,z):
                     remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
         data = remapped_image
 
+    if x:
+        data = np.swapaxes(data,1,2)
+        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+        for plane in range(zoomed_image.shape[0]):
+            for row in range(zoomed_image.shape[1]):
+                row_data = int(row/2)
+                for pixel in range(zoomed_image.shape[2]):
+                    if row % 2 == 0:
+                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+                    else:
+                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+        data=zoomed_image
+        
+        dim=shape_array.shape[2]
+        dim_original = data.shape[1]
+        remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
+        for plane in range(data.shape[0]):
+            sum_correction_factor = 0
+            for row in np.arange(dim):
+                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+                sum_correction_factor += correction_factor
+                upsampled_row = int(np.round(dim_original*sum_correction_factor))
+                bins= int(np.round(dim_original*correction_factor))
+                for pixel in range(data.shape[2]):      
+                    remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
+        remapped_image = np.swapaxes(remapped_image,1,2)
+        data = np.swapaxes(data,1,2)
+        data = remapped_image     
+    
     if z:
         data = np.swapaxes(data,0,1)
-        shape_array = np.swapaxes(shape_array,0,1)
-        dim=shape_array.shape[1]
+        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+        for plane in range(zoomed_image.shape[0]):
+            for row in range(zoomed_image.shape[1]):
+                row_data = int(row/2)
+                for pixel in range(zoomed_image.shape[2]):
+                    if row % 2 == 0:
+                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+                    else:
+                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+        data=zoomed_image
+
+        dim=shape_array.shape[0]
         dim_original = data.shape[1]
         remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
         for plane in range(data.shape[0]):
@@ -44,27 +94,8 @@ def remapping3DGPU(data,shape_array,x,y,z):
                 for pixel in range(data.shape[2]):      
                     remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
         data = np.swapaxes(data,0,1)
-        shape_array = np.swapaxes(shape_array,0,1)
         remapped_image = np.swapaxes(remapped_image,0,1)
         data = remapped_image
-        
-    if x:
-            data = np.swapaxes(data,1,2)
-            shape_array = np.swapaxes(shape_array,1,2)
-            dim=shape_array.shape[1]
-            dim_original = data.shape[1]
-            remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-            for plane in range(data.shape[0]):
-                sum_correction_factor = 0
-                for row in np.arange(dim):
-                    correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-                    sum_correction_factor += correction_factor
-                    upsampled_row = int(np.round(dim_original*sum_correction_factor))
-                    bins= int(np.round(dim_original*correction_factor))
-                    for pixel in range(data.shape[2]):      
-                        remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-            remapped_image = np.swapaxes(remapped_image,1,2)
-            data = remapped_image
 
     return data
 
@@ -84,7 +115,7 @@ def remapping1DGPU(remapped_image,zoomed_image):
         
     return remapped_image
 
-def remapping1DCPU(remapped_image,zoomed_image,upsampling_factor):
+def remapping1DCPU(remapped_image,zoomed_image):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
     dim_upsampled = zoomed_image.shape[0]
@@ -106,19 +137,19 @@ class App:
         label = Label(root, text='Upsampleing factor X:')
         label.grid(row=0, column=1, columnspan=2)
         self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_X_spinbox.set(1)
+        self.upsampling_factor_X_spinbox.set(2)
         self.upsampling_factor_X_spinbox.grid(row=0, column=3)
 
         label = Label(root, text='Upsampleing factor Y:')
         label.grid(row=1, column=1, columnspan=2)
         self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Y_spinbox.set(1)
+        self.upsampling_factor_Y_spinbox.set(2)
         self.upsampling_factor_Y_spinbox.grid(row=1, column=3)
         
         label = Label(root, text='Upsampleing factor Z:')
         label.grid(row=2, column=1, columnspan=2)
         self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Z_spinbox.set(1)
+        self.upsampling_factor_Z_spinbox.set(2)
         self.upsampling_factor_Z_spinbox.grid(row=2, column=3)
 
         self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
@@ -427,7 +458,8 @@ class App:
 
         if self.try_GPU.get():
             if x_factor > 1 or y_factor > 1 or z_factor > 1:
-                data = sp.ndimage.zoom(data,(z_factor,y_factor,x_factor),order=1)
+                ...
+                # data = sp.ndimage.zoom(data,(z_factor,y_factor,x_factor),order=1)
             data = remapping3DGPU(data,shape_array,x,y,z)
 
         else:
@@ -480,9 +512,9 @@ class App:
     def remapping2D(self,data,shape_array,upsampling_factor):
         zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
         if self.try_GPU.get():
-            remapped_image = remapping1DGPU(shape_array,zoomed_image,upsampling_factor)
+            remapped_image = remapping1DGPU(shape_array,zoomed_image)
         else:
-            remapped_image = remapping1DCPU(shape_array,zoomed_image,upsampling_factor)
+            remapped_image = remapping1DCPU(shape_array,zoomed_image)
         return remapped_image
 
 
