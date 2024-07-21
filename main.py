@@ -10,7 +10,7 @@ import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
 
-
+# upsampling should also be moved to GPU!
 @jit()
 def remapping3DGPU(data,shape_array,x,y,z):
     if y:
