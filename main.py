@@ -102,7 +102,7 @@ def remapping3D(data,shape_array,x,y,z):
 
     return data
 
-@jit(parallel=True)    #for GPU acceleration
+@jit()  
 def remapping1D(remapped_image,zoomed_image):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
@@ -124,7 +124,7 @@ class App:
         self.root = root
         self.root.title('Image Processing')
 
-        label = Label(root, text='Upsampling factor for 3D GPU processing is fixed at 2')
+        label = Label(root, text='Upsampling factor for 3D processing is fixed at 2')
         label.grid(row=0, column=0, columnspan=4)
 
         label = Label(root, text='Upsampleing factor X:')
