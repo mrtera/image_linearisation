@@ -10,6 +10,7 @@ import scipy as sp
 from numba import cuda, jit, prange
 from timeit import default_timer as timer  
 
+
 @jit(parallel=True)  
 def remapping3D(data,shape_array,x,y,z):
     ### upsampling by factor of 2 in selected directions ###
@@ -267,19 +268,19 @@ class App:
 
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
-            memap_filename = self.filename.removesuffix('.tif')+name+'.tif'
-            if '_TEMP' in memap_filename:
-                self.in_memmap_filename = memap_filename
+            memmap_filename = self.filename.replace('.tif',name+'.tif')
+            if '_TEMP' in memmap_filename:
+                self.in_memmap_filename = memmap_filename
             else:
-                self.out_memap_filename = memap_filename
+                self.out_memmap_filename = memmap_filename
 
             print('Creating memap file, might take a while, shape: '+str(shape))
             dtype = self.dtype
             # create an empty OME-TIFF file
-            tiff.imwrite(memap_filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
+            tiff.imwrite(memmap_filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
 
             # memory map numpy array to data in OME-TIFF file
-            memap_stack = tiff.memmap(memap_filename)
+            memap_stack = tiff.memmap(memmap_filename)
             return memap_stack
     
     
@@ -358,17 +359,25 @@ class App:
             with tiff.TiffFile(self.filename) as tif:
                 t_dim = tif.series[0].shape[-4]
                 z_dim = tif.series[0].shape[-3]
+                start=timer()
+                if self.melt:
+                    snow_value = 0                   
                 for timepoints in range(t_dim):
                     for volumes in range(z_dim):
                         data[timepoints,volumes] = tif.pages[timepoints*z_dim+volumes].asarray()
+                        if self.melt:
+                            snow_value = np.amax(data[timepoints,volumes])
                     if timepoints % 50 == 0:
                         print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
+                        print('Time elapsed: '+str(timer()-start))
+                        start=timer()
             print('Data written to memory-mapped array') 
 
         # melt snow if selected
         if self.melt:
-            print('getting snow value')
-            snow_value = np.amax(data)
+            if not in_memmap:
+                print('getting snow value')
+                snow_value = np.amax(data)
             print('Remvoing snow above '+str(self.snow_threshold*snow_value))
             for timestep in range(t_dim):
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
@@ -543,29 +552,31 @@ class App:
     
 
     def save_data(self,data,new_shape,in_memmap,out_memmap):
-            if not np.any(new_shape):
-                if in_memmap:
+        print('Saving data')
+        if not np.any(new_shape):
+            if in_memmap:
+                data.flush()
+                path=self.in_memmap_filename.replace('_TEMP','_processed')
+                os.rename(self.in_memmap_filename,path)
+                self.compress_image(path)            
+            else:    
+                self.save_image(data)
+        else:
+            if in_memmap:
+                try:
                     data.flush()
-                    path=self.in_memmap_filename.replace('_TEMP','_processed')
-                    os.rename(self.in_memmap_filename,path)
-                    self.compress_image(path)            
-                else:    
-                    self.save_image(data)
+                    os.remove(self.in_memmap_filename)
+                except:
+                    pass
+            if out_memmap:
+                try:
+                    new_shape.flush()
+                    self.compress_image(self.out_memmap_filename)
+                except:
+                    pass
             else:
-                if in_memmap or out_memmap:
-                    try:
-                        data.flush()
-                        os.remove(self.memap_filename)
-                    except:
-                        pass
-                    try:
-                        new_shape.flush()
-                        self.compress_image(self.out_memmap_filename)
-                    except:
-                        pass
-                else:
-                    self.save_image(new_shape)     
-            return
+                self.save_image(new_shape)     
+        return
 
     def save_image(self,file):
         print('compressing and saving data')
