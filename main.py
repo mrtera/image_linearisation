@@ -237,7 +237,7 @@ class App:
             self.is_2D_video = False
             self.is_3D_video = False
             
-            print("Processing: '"+self.filename+"'")
+            print("Processing: '"+self.filename+"'\n loading data")
             with tiff.TiffFile(self.filename) as tif:
                 self.dim = tif.series[0].ndim
                 self.tif_shape = tif.series[0].shape
