@@ -101,7 +101,7 @@ def remapping3DGPU(data,shape_array,x,y,z):
 
     return data
 
-@jit()    #for GPU acceleration
+@jit(parallel=True)    #for GPU acceleration
 def remapping1DGPU(remapped_image,zoomed_image):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
