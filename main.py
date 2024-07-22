@@ -18,10 +18,11 @@ def remapping3DGPU(data,shape_array,x,y,z):
         for plane in range(zoomed_image.shape[0]):
             for row in range(zoomed_image.shape[1]):
                 row_data = int(row/2)
-                for pixel in range(zoomed_image.shape[2]):
-                    if row % 2 == 0:
+                if row % 2 == 0:
+                    for pixel in range(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                    else:
+                else:
+                    for pixel in range(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
         data=zoomed_image
 
@@ -45,10 +46,11 @@ def remapping3DGPU(data,shape_array,x,y,z):
         for plane in range(zoomed_image.shape[0]):
             for row in range(zoomed_image.shape[1]):
                 row_data = int(row/2)
-                for pixel in range(zoomed_image.shape[2]):
-                    if row % 2 == 0:
+                if row % 2 == 0:
+                    for pixel in range(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                    else:
+                else:
+                    for pixel in range(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
         data=zoomed_image
         
@@ -74,10 +76,11 @@ def remapping3DGPU(data,shape_array,x,y,z):
         for plane in range(zoomed_image.shape[0]):
             for row in range(zoomed_image.shape[1]):
                 row_data = int(row/2)
-                for pixel in range(zoomed_image.shape[2]):
-                    if row % 2 == 0:
+                if row % 2 == 0:
+                    for pixel in range(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                    else:
+                else:
+                    for pixel in range(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
         data=zoomed_image
 
@@ -110,7 +113,7 @@ def remapping1DGPU(remapped_image,zoomed_image):
         upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
         bins= int(np.round(dim_upsampled*correction_factor))
 
-        for pixels in prange(remapped_image.shape[1]):                # GPU computed not a lot of gain 
+        for pixels in prange(remapped_image.shape[1]): 
             remapped_image[row,pixels] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins,pixels])
         
     return remapped_image
@@ -238,7 +241,7 @@ class App:
             self.is_2D_video = False
             self.is_3D_video = False
             
-            print("Processing: '"+self.filename+"'")
+            print("Processing: '"+self.filename+"' \nloading data")
             with tiff.TiffFile(self.filename) as tif:
                 self.dim = tif.series[0].ndim
                 self.tif_shape = tif.series[0].shape
@@ -398,7 +401,7 @@ class App:
             for timestep in range(t_dim):
                 start=timer()
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                print('Volume '+str(timestep)+' corrected')
+                print('Volume '+str(timestep+1)+' corrected')
                 print('Time elapsed: '+str(timer()-start))
         
         self.save_data(data,new_shape,in_memmap,out_memmap)    
@@ -460,9 +463,6 @@ class App:
             z_factor = self.upsampling_factor_Z
 
         if self.try_GPU.get():
-            if x_factor > 1 or y_factor > 1 or z_factor > 1:
-                ...
-                # data = sp.ndimage.zoom(data,(z_factor,y_factor,x_factor),order=1)
             data = remapping3DGPU(data,shape_array,x,y,z)
 
         else:
