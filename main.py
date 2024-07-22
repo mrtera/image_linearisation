@@ -11,7 +11,7 @@ from numba import jit, prange
 from timeit import default_timer as timer  
 
 @jit(parallel=True)  
-def remapping3Dparallel(data,shape_array,x,y,z):
+def remapping3D(data,shape_array,x,y,z):
     ### upsampling by factor of 2 in selected directions ###
     if y:
         zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
@@ -102,7 +102,7 @@ def remapping3Dparallel(data,shape_array,x,y,z):
     return data
 
 @jit(parallel=True)    #for GPU acceleration
-def remapping1DGPU(remapped_image,zoomed_image):
+def remapping1D(remapped_image,zoomed_image):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
     dim_upsampled = zoomed_image.shape[0]
@@ -117,19 +117,6 @@ def remapping1DGPU(remapped_image,zoomed_image):
         
     return remapped_image
 
-def remapping1DCPU(remapped_image,zoomed_image):
-    sum_correction_factor = 0
-    dim=remapped_image.shape[0]
-    dim_upsampled = zoomed_image.shape[0]
-    for row in np.arange(dim):
-        correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-        sum_correction_factor += correction_factor
-        upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-        bins= int(np.round(dim_upsampled*correction_factor))
-
-        remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0) # CPU computed
-    return remapped_image
-    
 
 class App:
     def __init__(self, root):
@@ -450,7 +437,7 @@ class App:
         y = self.do_y_correction.get()
         z = self.do_z_correction.get()
 
-        data = remapping3Dparallel(data,shape_array,x,y,z)
+        data = remapping3D(data,shape_array,x,y,z)
 
         return data
 
@@ -474,7 +461,7 @@ class App:
 
     def remapping2D(self,data,shape_array,upsampling_factor):
         zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
-        remapped_image = remapping1DGPU(shape_array,zoomed_image)
+        remapped_image = remapping1D(shape_array,zoomed_image)
         return remapped_image
 
 
