@@ -256,17 +256,19 @@ class App:
                         snow_value = np.amax(data)
                 if self.dim == 2:
                     self.is_single_frame = True
-                    new_shape = self.create_new_array(data)
+                    new_shape = self.create_new_array(data)[0]
                     if self.melt:
                         data = self.melt_snow(data,snow_value)
                     remapped_image = self.process_2D(data,new_shape)
+                    print('processing done')
                     self.save_image(remapped_image)
                 elif self.dim == 3:
                     self.is_single_volume = True
-                    new_shape = self.create_new_array(data)
+                    new_shape = self.create_new_array(data)[0]
                     if self.melt:
                         data = self.melt_snow(data,snow_value)
                     remapped_image = self.process_3D(data,new_shape)
+                    print('processing done')
                     self.save_image(remapped_image)
 
             elif self.dim == 4 and not self.is2D:
@@ -333,7 +335,7 @@ class App:
             new_array = np.zeros(shape,dtype='uint16')
         if self.is_single_volume:
             shape = (z_dim,y_dim,x_dim)
-            new_array = np.zeros(shape,dtype='uint16')   
+            new_array = np.zeros(shape,dtype='uint16')
 
         if self.is_2D_video:
             shape = (t_dim,y_dim,x_dim)
@@ -394,6 +396,7 @@ class App:
 
         print('Creating tif with corrected aspect ratio')
         new_shape,out_memmap = self.create_new_array(data)
+        print(type(new_shape))
 
         # process data
         print('correcting for sin distorsion')
