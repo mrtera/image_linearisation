@@ -509,7 +509,7 @@ class App:
 
             for flakes in new_snow_coords:
                 try:
-                    filtered_data[flakes] = np.sum(data[flakes[-2]-1:flakes[-2]+2:2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
+                    filtered_data[flakes] = (np.average((data[flakes[-2]-1:flakes[-2]+2:2,flakes[-1]-1:flakes[-1]+2]*kernel)*0.01)*100).astype('uint16')
                 except ValueError:
                     pass
                 except RuntimeWarning:
@@ -542,9 +542,9 @@ class App:
 
             for flakes in new_snow_coords:
                 try:
-                    filtered_data[flakes] = np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
+                    filtered_data[flakes] = np.average(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
                 except ValueError:
-                    pass
+                    filtered_data[flakes] = 0
                 except RuntimeWarning:
                     pass
 
