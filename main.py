@@ -11,7 +11,7 @@ from numba import cuda, jit, prange
 from timeit import default_timer as timer  
 
 @jit(parallel=True)  
-def remapping3DGPU(data,shape_array,x,y,z):
+def remapping3D(data,shape_array,x,y,z):
     ### upsampling by factor of 2 in selected directions ###
     if y:
         zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
@@ -102,7 +102,7 @@ def remapping3DGPU(data,shape_array,x,y,z):
     return data
 
 @jit(parallel=True)    #for GPU acceleration
-def remapping1DGPU(remapped_image,zoomed_image):
+def remapping1D(remapped_image,zoomed_image):
     sum_correction_factor = 0
     dim=remapped_image.shape[0]
     dim_upsampled = zoomed_image.shape[0]
@@ -117,19 +117,6 @@ def remapping1DGPU(remapped_image,zoomed_image):
         
     return remapped_image
 
-def remapping1DCPU(remapped_image,zoomed_image):
-    sum_correction_factor = 0
-    dim=remapped_image.shape[0]
-    dim_upsampled = zoomed_image.shape[0]
-    for row in np.arange(dim):
-        correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-        sum_correction_factor += correction_factor
-        upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-        bins= int(np.round(dim_upsampled*correction_factor))
-
-        remapped_image[row] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins],axis=0) # CPU computed
-    return remapped_image
-    
 
 class App:
     def __init__(self, root):
@@ -181,13 +168,9 @@ class App:
         do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=3, column=0)
 
-        self.try_GPU = BooleanVar(value=True)
-        try_GPU_checkbox = Checkbutton(root, text='Try GPU', variable=self.try_GPU)
-        try_GPU_checkbox.grid(row=6, column=1)
-        
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(root, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=6, column=2)
+        rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
 
         open = Button(root, text='Open Image', command=self.open_image)
         open.grid(row=6, column=0, columnspan=1)
@@ -454,36 +437,8 @@ class App:
         y = self.do_y_correction.get()
         z = self.do_z_correction.get()
 
-        if self.try_GPU.get():
-            data = remapping3DGPU(data,shape_array,x,y,z)
+        data = remapping3D(data,shape_array,x,y,z)
 
-        else:
-            if y:
-                remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
-                for image in range(data.shape[0]):
-                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_Y)
-                data = remapped_image
-
-            if z:
-                data = np.swapaxes(data,0,1)
-                shape_array = np.swapaxes(shape_array,0,1)
-                remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
-                for image in range(data.shape[0]):
-                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_Z)
-                data = np.swapaxes(data,0,1)
-                shape_array = np.swapaxes(shape_array,0,1)
-                remapped_image = np.swapaxes(remapped_image,0,1)
-                data = remapped_image
-                
-            if x:
-                data = np.swapaxes(data,1,2)
-                shape_array = np.swapaxes(shape_array,1,2)
-                remapped_image = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype='uint16')
-                for image in range(data.shape[0]):
-                    remapped_image[image] = self.remapping2D(data[image],shape_array[0],self.upsampling_factor_X)
-                data = np.swapaxes(data,1,2)
-                remapped_image = np.swapaxes(remapped_image,1,2)
-                data = remapped_image
         return data
 
     #Needs to get the data and needs to know the new x and y dimensions
@@ -506,10 +461,7 @@ class App:
 
     def remapping2D(self,data,shape_array,upsampling_factor):
         zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
-        if self.try_GPU.get():
-            remapped_image = remapping1DGPU(shape_array,zoomed_image)
-        else:
-            remapped_image = remapping1DCPU(shape_array,zoomed_image)
+        remapped_image = remapping1D(shape_array,zoomed_image)
         return remapped_image
 
 
