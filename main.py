@@ -7,10 +7,10 @@ from tkinter import filedialog
 import tifffile as tiff
 import numpy as np
 import scipy as sp
-from numba import jit, prange
+from numba import jit, prange, uint16, boolean
 from timeit import default_timer as timer  
 
-@jit(parallel=True) 
+@jit(parallel=True)  
 def remapping3DGPU(data,shape_array,x,y,z):
     ### upsampling by factor of 2 in selected directions ###
     if y:
@@ -19,10 +19,10 @@ def remapping3DGPU(data,shape_array,x,y,z):
             for row in prange(zoomed_image.shape[1]):
                 row_data = int(row/2)
                 if row % 2 == 0:
-                    for pixel in range(zoomed_image.shape[2]):
+                    for pixel in prange(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
                 else:
-                    for pixel in range(zoomed_image.shape[2]):
+                    for pixel in prange(zoomed_image.shape[2]):
                         zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
         data=zoomed_image
 
@@ -435,6 +435,7 @@ class App:
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
+            print('Snow removed')
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
