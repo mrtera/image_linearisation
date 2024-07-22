@@ -7,7 +7,7 @@ from tkinter import filedialog
 import tifffile as tiff
 import numpy as np
 import scipy as sp
-from numba import jit, prange
+from numba import cuda, jit, prange
 from timeit import default_timer as timer  
 
 @jit(parallel=True)  
