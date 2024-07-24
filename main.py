@@ -7,11 +7,11 @@ from tkinter import filedialog
 import tifffile as tiff
 import numpy as np
 import scipy as sp
-from numba import cuda, jit, prange
+from numba import jit, prange
 from timeit import default_timer as timer  
 
 
-@jit(parallel=True)  
+@jit(parallel=True, cache=True)  
 def remapping3D(data,shape_array,x,y,z):
     ### upsampling by factor of 2 in selected directions ###
     if y:
@@ -124,8 +124,12 @@ class App:
         self.root = root
         self.root.title('Image Processing')
 
+        self.verbose = BooleanVar(value=False)
+        verbose = Checkbutton(root, text='verbose', variable=self.verbose)
+        verbose.grid(row=0, column=0)
+
         label = Label(root, text='Upsampling factor for 3D processing is fixed at 2')
-        label.grid(row=0, column=0, columnspan=4)
+        label.grid(row=0, column=1, columnspan=3)
 
         label = Label(root, text='Upsampleing factor X:')
         label.grid(row=1, column=1, columnspan=2)
@@ -183,31 +187,32 @@ class App:
     def open_image(self):
         filenames = filedialog.askopenfilenames(filetypes=[("Tiff files","*.tif"),("Tiff files","*.tiff")])
         self.filenames = list(filenames)
-        for filename in self.filenames:
-            with tiff.TiffFile(filename) as tif:
-                dim = tif.series[0].ndim
-                print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
-                if dim in [2,3,4] and not self.is2D_video.get():
-        
-                    try:
-                        print('t dim = '+str(tif.series[0].shape[-4]))
-                    except IndexError:
-                        pass
-                    try:
-                        print('Z dim = '+str(tif.series[0].shape[-3]))
-                    except IndexError:
-                        pass
-                    try:
+        if self.verbose.get():            
+            for filename in self.filenames:
+                with tiff.TiffFile(filename) as tif:
+                    dim = tif.series[0].ndim
+                    print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
+                    if dim in [2,3,4] and not self.is2D_video.get():
+            
+                        try:
+                            print('t dim = '+str(tif.series[0].shape[-4]))
+                        except IndexError:
+                            pass
+                        try:
+                            print('Z dim = '+str(tif.series[0].shape[-3]))
+                        except IndexError:
+                            pass
+                        try:
+                            print('Y dim = '+str(tif.series[0].shape[-2]))
+                            print('X dim = '+str(tif.series[0].shape[-1]))
+                        except IndexError:
+                            pass
+                    elif dim == 3 and self.is2D_video.get():
+                        print('t dim = '+str(tif.series[0].shape[-3]))
                         print('Y dim = '+str(tif.series[0].shape[-2]))
                         print('X dim = '+str(tif.series[0].shape[-1]))
-                    except IndexError:
-                        pass
-                elif dim == 3 and self.is2D_video.get():
-                    print('t dim = '+str(tif.series[0].shape[-3]))
-                    print('Y dim = '+str(tif.series[0].shape[-2]))
-                    print('X dim = '+str(tif.series[0].shape[-1]))
-                else:            
-                    print('Image dimension not supported') 
+                    else:            
+                        print('Image dimension not supported') 
 
 
     def process(self):
@@ -391,12 +396,14 @@ class App:
         # process data
         print('correcting for sin distorsion')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
+            start=timer()
             for timestep in range(t_dim):
-                # start=timer()
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                if timestep % 20 == 0:
-                    print('Volume '+str(timestep+1)+' corrected')
-                    # print('Time elapsed: '+str(timer()-start))
+                if timestep % 50 == 0:
+                    print('Volume '+str(timestep)+' corrected')
+                    if self.verbose.get():
+                        print('Time elapsed: '+str(timer()-start))
+                        start=timer()
                 
         
         self.save_data(data,new_shape,in_memmap,out_memmap)    
