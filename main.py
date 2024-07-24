@@ -383,10 +383,12 @@ class App:
         print('correcting for sin distorsion')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
             for timestep in range(t_dim):
-                start=timer()
+                # start=timer()
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                print('Volume '+str(timestep+1)+' corrected')
-                print('Time elapsed: '+str(timer()-start))
+                if timestep % 20 == 0:
+                    print('Volume '+str(timestep+1)+' corrected')
+                    # print('Time elapsed: '+str(timer()-start))
+                
         
         self.save_data(data,new_shape,in_memmap,out_memmap)    
     
