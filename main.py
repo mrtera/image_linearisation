@@ -32,7 +32,7 @@ def remapping3D(data,shape_array,x,y,z):
         remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
         for plane in prange(data.shape[0]):
             sum_correction_factor = 0
-            for row in prange(dim):
+            for row in range(dim):
                 correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
                 sum_correction_factor += correction_factor
                 upsampled_row = int(np.round(dim_original*sum_correction_factor))
@@ -60,7 +60,7 @@ def remapping3D(data,shape_array,x,y,z):
         remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
         for plane in prange(data.shape[0]):
             sum_correction_factor = 0
-            for row in prange(dim):
+            for row in range(dim):
                 correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
                 sum_correction_factor += correction_factor
                 upsampled_row = int(np.round(dim_original*sum_correction_factor))
@@ -90,7 +90,7 @@ def remapping3D(data,shape_array,x,y,z):
         remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
         for plane in prange(data.shape[0]):
             sum_correction_factor = 0
-            for row in prange(dim):
+            for row in range(dim):
                 correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
                 sum_correction_factor += correction_factor
                 upsampled_row = int(np.round(dim_original*sum_correction_factor))
@@ -102,18 +102,19 @@ def remapping3D(data,shape_array,x,y,z):
 
     return data
 
-@jit(parallel=True)    #for GPU acceleration
-def remapping1D(remapped_image,zoomed_image):
+@jit(parallel=True)  
+def remapping1D(zoomed_image,shape_array):
     sum_correction_factor = 0
-    dim=remapped_image.shape[0]
+    dim=shape_array.shape[0]
     dim_upsampled = zoomed_image.shape[0]
-    for row in prange(dim):
+    remapped_image = np.zeros((dim,zoomed_image.shape[1]),dtype='uint16') 
+
+    for row in range(dim):
         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
         upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
         bins= int(np.round(dim_upsampled*correction_factor))
-
-        for pixels in prange(remapped_image.shape[1]): 
+        for pixels in prange(zoomed_image.shape[1]): 
             remapped_image[row,pixels] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins,pixels])
         
     return remapped_image
@@ -179,7 +180,6 @@ class App:
         process = Button(root, text='Process Image', command=self.process)
         process.grid(row=6, column=3)
 
-
     def open_image(self):
         filenames = filedialog.askopenfilenames(filetypes=[("Tiff files","*.tif"),("Tiff files","*.tiff")])
         self.filenames = list(filenames)
@@ -208,7 +208,6 @@ class App:
                     print('X dim = '+str(tif.series[0].shape[-1]))
                 else:            
                     print('Image dimension not supported') 
-
 
     def process(self):
         
@@ -265,7 +264,6 @@ class App:
             else:
                 print('Image dimension not supported!')
         
-
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
             memmap_filename = self.filename.replace('.tif',name+'.tif')
@@ -282,9 +280,8 @@ class App:
             # memory map numpy array to data in OME-TIFF file
             memap_stack = tiff.memmap(memmap_filename)
             return memap_stack
-    
-    
-    def create_new_array(self,data): #Prelimenary work to rescale for aspact ratio
+
+    def create_new_array(self,data): 
         memmap = False
         if not self.is_2D_video:
             x_dim = data.shape[-1]
@@ -339,7 +336,6 @@ class App:
                 memmap = True
         return new_array, memmap
 
-     
     def process_4D(self):
         # Load data either in RAM or as memmap
         in_memmap = False
@@ -398,8 +394,7 @@ class App:
                 print('Time elapsed: '+str(timer()-start))
         
         self.save_data(data,new_shape,in_memmap,out_memmap)    
-    
-    
+     
     def process_2Dt(self):
         in_memmap = False
         out_memmap = False
@@ -439,8 +434,7 @@ class App:
 
         self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
-    
-    
+      
     def process_3D(self,data,shape_array):
         x = self.do_x_correction.get()
         y = self.do_y_correction.get()
@@ -450,8 +444,6 @@ class App:
 
         return data
 
-    #Needs to get the data and needs to know the new x and y dimensions
-    #shape_array is 0 array in shape of image after processing
     def process_2D(self,data,shape_array):
 
         if self.do_y_correction.get():
@@ -464,13 +456,11 @@ class App:
             remapped_image = self.remapping2D(remapped_image,shape_array,self.upsampling_factor_X)
             remapped_image = np.swapaxes(remapped_image,0,1)
         return remapped_image
-
-
+    
 ### Remapping ###
-
     def remapping2D(self,data,shape_array,upsampling_factor):
         zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
-        remapped_image = remapping1D(shape_array,zoomed_image)
+        remapped_image = remapping1D(zoomed_image,shape_array)
         return remapped_image
 
 
