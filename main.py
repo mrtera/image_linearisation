@@ -134,19 +134,19 @@ class App:
         label = Label(root, text='Upsampleing factor X:')
         label.grid(row=1, column=1, columnspan=2)
         self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_X_spinbox.set(2)
+        self.upsampling_factor_X_spinbox.set(23)
         self.upsampling_factor_X_spinbox.grid(row=1, column=3)
 
         label = Label(root, text='Upsampleing factor Y:')
         label.grid(row=2, column=1, columnspan=2)
         self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Y_spinbox.set(2)
+        self.upsampling_factor_Y_spinbox.set(23)
         self.upsampling_factor_Y_spinbox.grid(row=2, column=3)
         
         label = Label(root, text='Upsampleing factor Z:')
         label.grid(row=3, column=1, columnspan=2)
         self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
-        self.upsampling_factor_Z_spinbox.set(2)
+        self.upsampling_factor_Z_spinbox.set(23)
         self.upsampling_factor_Z_spinbox.grid(row=3, column=3)
 
         self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
