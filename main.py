@@ -531,14 +531,14 @@ class App:
 
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
-
             for flakes in new_snow_coords:
                 try:
-                    filtered_data[flakes] = (np.average((data[flakes[-2]-1:flakes[-2]+2:2,flakes[-1]-1:flakes[-1]+2]*kernel)*0.01)*100).astype('uint16')
+                    filtered_data[flakes] = (np.average((data[flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)*0.01)*100).astype('uint16')
                 except ValueError:
                     pass
                 except RuntimeWarning:
                     pass
+        
 
         else:
             kernel = np.ones((3,3,3))/24
