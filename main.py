@@ -567,12 +567,12 @@ class App:
 
             for flakes in new_snow_coords:
                 try:
-                    if ((flakes[-3] < data.shape[-3]-1) and (flakes[-3] > 0)) or ((flakes[-2] < data.shape[-2]-1) and (flakes[-2] > 0)) or ((flakes[-1] < flakes[-1]-1) and (flakes[-1] > 0)):
+                    if (((flakes[-3] < data.shape[-3]-1) and (flakes[-3] > 0)) and ((flakes[-2] < data.shape[-2]-1) and (flakes[-2] > 0)) and ((flakes[-1] < flakes[-1]-1) and (flakes[-1] > 0))):
                         filtered_data[flakes] = np.average(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
                     else:
                         filtered_data[flakes] = 0
                 except ValueError:
-                    pass
+                    print(flakes)
 
         return filtered_data
     
