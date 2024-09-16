@@ -165,15 +165,15 @@ class App:
         do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
         do_x_correction_checkbox.grid(row=1, column=0)
 
-        self.do_y_correction = BooleanVar(value=True)
+        self.do_y_correction = BooleanVar(value=False)
         do_y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=2, column=0)
 
-        self.do_z_correction = BooleanVar(value=True)
+        self.do_z_correction = BooleanVar(value=False)
         do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=3, column=0)
 
-        self.rescale_image = BooleanVar(value=True)
+        self.rescale_image = BooleanVar(value=False)
         rescale_image_checkbox = Checkbutton(root, text='rescale image', variable=self.rescale_image)
         rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
 
@@ -480,6 +480,8 @@ class App:
         return data
 
     def process_2D(self,data,shape_array):
+        if not self.do_x_correction.get() and not self.do_y_correction.get():
+            remapped_image = data
 
         if self.do_y_correction.get():
             remapped_image = self.remapping2D(data,shape_array,self.upsampling_factor_Y)
@@ -498,14 +500,17 @@ class App:
         remapped_image = remapping1D(zoomed_image,shape_array)
         return remapped_image
 
-
 ### Snow removal ###
+    def compare_tuples(tuple1, tuple2):
+        return all(a < b for a, b in zip(tuple1, tuple2))
+
     def melt_snow(self,data,snow_value):
         filtered_data = data
         snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
         x_dim = data.shape[-1]
         extended_coords=[]
         if data.ndim == 2:
+            data_shape = (data.shape[-2]-1,data.shape[-1]-1)
             kernel = np.ones((3,3))/6
             kernel[1,:]=0
 
@@ -531,16 +536,16 @@ class App:
 
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
+
+            # filter snow
             for flakes in new_snow_coords:
-                try:
-                    filtered_data[flakes] = (np.average((data[flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)*0.01)*100).astype('uint16')
-                except ValueError:
-                    pass
-                except RuntimeWarning:
-                    pass
-        
+                if all(a < b for a, b in zip(flakes,data_shape)) and all(a > b for a, b in zip(flakes,(0,0))):
+                    filtered_data[flakes] = np.round(np.sum((data[flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)*0.01)*100).astype('uint16')
+                else:
+                    filtered_data[flakes] = 0
 
         elif data.ndim == 3:
+            data_shape = (data.shape[-3]-1,data.shape[-2]-1,data.shape[-1]-1)
             kernel = np.ones((3,3,3))/24
             kernel[1,1,:]=0
 
@@ -565,14 +570,14 @@ class App:
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
+            # filter snow
             for flakes in new_snow_coords:
-                try:
-                    if (((flakes[-3] < data.shape[-3]-1) and (flakes[-3] > 0)) and ((flakes[-2] < data.shape[-2]-1) and (flakes[-2] > 0)) and ((flakes[-1] < flakes[-1]-1) and (flakes[-1] > 0))):
-                        filtered_data[flakes] = np.average(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel).astype('uint16')
-                    else:
-                        filtered_data[flakes] = 0
-                except ValueError:
-                    print(flakes)
+                if all(a < b for a, b in zip(flakes,data_shape)) and all(a > b for a, b in zip(flakes,(0,0,0))):
+                    filtered_data[flakes] = np.round(np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)).astype('uint16')
+                else:
+                    filtered_data[flakes] = 0
+
+
 
         return filtered_data
     
