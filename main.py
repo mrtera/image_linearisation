@@ -184,7 +184,7 @@ class App:
         process.grid(row=7, column=3)
 
     def open_image(self):
-        filenames = filedialog.askopenfilenames(filetypes=[("Tiff files","*.tif"),("Tiff files","*.tiff"),("Raw Data","*.ird")])
+        filenames = filedialog.askopenfilenames(filetypes=[("Raw Data","*.ird"),("Tiff files","*.tif"),("Tiff files","*.tiff")])
         self.filenames = list(filenames)
         if self.verbose.get():            
             for filename in self.filenames:
@@ -243,8 +243,8 @@ class App:
                 import napari_streamin.arrays   
                 file = rawdata.InputFile()
                 file.open(self.filename)
-                provider = rawdata.ImageDataProvider(file,0)
-                images = napari_streamin.arrays.VolumeArray(provider)
+                self.provider = rawdata.ImageDataProvider(file,0)
+                images = napari_streamin.arrays.VolumeArray(self.provider)
                 
                 if images.shape[-3]==1:
                     self.is_2D_video = True 
@@ -252,7 +252,6 @@ class App:
                 else:
                     self.is_3D_video = True
                     self.process_4D_ird()
-
 
             else:            
                 print("Processing: '"+self.filename+"' \nloading data")
@@ -298,17 +297,25 @@ class App:
         
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
-            memmap_filename = self.filename.replace('.tif',name+'.tif')
+            if self.filename.endswith('.tif'):
+                memmap_filename = self.filename.replace('.tif',name+'.tif')
+            elif self.filename.endswith('.ird'):
+                memmap_filename = self.filename.replace('.ird',name+'.tif')
             if '_TEMP' in memmap_filename:
                 self.in_memmap_filename = memmap_filename
             else:
                 self.out_memmap_filename = memmap_filename
 
             print('Creating memap file, might take a while, shape: '+str(shape))
-            dtype = self.dtype
+            try:
+                dtype = self.dtype
+            except AttributeError:
+                dtype = 'uint16'
             # create an empty OME-TIFF file
+            start=timer()
             tiff.imwrite(memmap_filename, shape=shape, dtype=dtype, metadata={'axes': self.axes})
-
+            print('Memap file created in ' + str(timer()-start))
+        
             # memory map numpy array to data in OME-TIFF file
             memap_stack = tiff.memmap(memmap_filename)
             return memap_stack
@@ -394,7 +401,7 @@ class App:
                     for volumes in range(z_dim):
                         data[timepoints,volumes] = tif.pages[timepoints*z_dim+volumes].asarray()
                         if self.melt:
-                            snow_value = np.amax(data[timepoints,volumes])
+                            snow_value = np.maximum(snow_value,np.amax(data[timepoints,volumes]))
                     if timepoints % 50 == 0:
                         print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
                         print('Time elapsed: '+str(timer()-start))
@@ -472,33 +479,35 @@ class App:
         return
 
 
-    def process_4D_ird(self):
-        # Load data either in RAM or as memmap
-        in_memmap = False
-        out_memmap = False
-        except np.core._exceptions._ArrayMemoryError:
-            in_memmap = True
-            print('MemoryError: File too large for RAM, writing original data to memmap')
-            data = self.memap(self.tif_shape)
-            # write data to memory-mapped array    
-            print('Writing data to memory-mapped array')
-            with tiff.TiffFile(self.filename) as tif:
-                t_dim = tif.series[0].shape[-4]
-                z_dim = tif.series[0].shape[-3]
-                start=timer()
-                if self.melt:
-                    snow_value = 0                   
-                for timepoints in range(t_dim):
-                    for volumes in range(z_dim):
-                        data[timepoints,volumes] = tif.pages[timepoints*z_dim+volumes].asarray()
-                        if self.melt:
-                            snow_value = np.amax(data[timepoints,volumes])
-                    if timepoints % 50 == 0:
-                        print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
-                        print('Time elapsed: '+str(timer()-start))
-                        start=timer()
-            print('Data written to memory-mapped array') 
 
+
+    def process_4D_ird(self):
+        import napari_streamin.arrays 
+        irdata = napari_streamin.arrays.VolumeArray(self.provider)
+        tif_shape = irdata.shape 
+        t_dim = tif_shape[-4]
+        snow_value = 0 
+        self.axes = 'QQYX'
+
+        # Load data as memmap
+        in_memmap = True
+        out_memmap = False
+
+        print('loading to memmap')
+        data = self.memap(tif_shape)
+        # write data to memory-mapped array    
+        print('Writing data to memory-mapped array')
+
+        for timepoints in range(t_dim):
+            data[timepoints] = irdata[timepoints,:,:,:]
+            if self.melt:
+                snow_value = np.maximum(snow_value,np.amax(data[timepoints,:,:,:]))
+            if timepoints % 50 == 0:
+                    print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
+            
+        print('Data written to memory-mapped array')
+        print('Max Snow value: '+str(snow_value))
+        
         # melt snow if selected
         if self.melt:
             if not in_memmap:
@@ -517,7 +526,8 @@ class App:
         # process data
         print('correcting for sin distorsion')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
-            start=timer()
+            if self.verbose.get():
+                start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
                 if timestep % 50 == 0:
@@ -526,7 +536,7 @@ class App:
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
                 
-        
+        data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)  
     
 
@@ -714,9 +724,9 @@ class App:
         if not np.any(new_shape):
             if in_memmap:
                 data.flush()
-                path=self.in_memmap_filename.replace('_TEMP','_processed')
-                os.rename(self.in_memmap_filename,path)
-                self.compress_image(path)            
+                # path=self.in_memmap_filename.replace('_TEMP','_processed')
+                # os.rename(self.in_memmap_filename,path)
+                self.compress_image(self.in_memmap_filename) #path           
             else:    
                 self.save_image(data)
         else:
