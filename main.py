@@ -165,15 +165,15 @@ class App:
         do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
         do_x_correction_checkbox.grid(row=1, column=0)
 
-        self.do_y_correction = BooleanVar(value=False)
+        self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=2, column=0)
 
-        self.do_z_correction = BooleanVar(value=False)
+        self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=3, column=0)
 
-        self.rescale_image = BooleanVar(value=False)
+        self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(root, text='rescale image', variable=self.rescale_image)
         rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
 
