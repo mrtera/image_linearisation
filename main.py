@@ -535,7 +535,6 @@ class App:
                     if self.verbose.get():
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
-                
         data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)  
     
@@ -724,9 +723,12 @@ class App:
         if not np.any(new_shape):
             if in_memmap:
                 data.flush()
-                # path=self.in_memmap_filename.replace('_TEMP','_processed')
-                # os.rename(self.in_memmap_filename,path)
-                self.compress_image(self.in_memmap_filename) #path           
+                path=self.in_memmap_filename.replace('_TEMP','_processed')
+                try:
+                    os.rename(self.in_memmap_filename,path)
+                    self.compress_image(path) 
+                except:
+                    self.compress_image(self.in_memmap_filename) 
             else:    
                 self.save_image(data)
         else:
