@@ -124,64 +124,86 @@ class App:
         self.root = root
         self.root.title('Image Processing')
 
+        settings_frame = Frame(root)
+        settings_frame['borderwidth'] = 2
+        settings_frame['relief'] = 'groove'
+        settings_frame.grid(row=0, column =0,columnspan=2)
+
         self.verbose = BooleanVar(value=False)
-        verbose = Checkbutton(root, text='verbose', variable=self.verbose)
+        verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
         verbose.grid(row=1, column=0)
 
-        label = Label(root, text='Upsampling factor for 3D processing is fixed at 2')
+        label = Label(settings_frame, text='Upsampling factor for 3D processing is fixed at 2')
         label.grid(row=0, column=0, columnspan=4)
 
-        label = Label(root, text='Upsampleing factor X:')
+        label = Label(settings_frame, text='Upsampleing factor X:')
         label.grid(row=2, column=1, columnspan=2)
-        self.upsampling_factor_X_spinbox = Spinbox(root, from_=1, to=100, width=4)
+        self.upsampling_factor_X_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
         self.upsampling_factor_X_spinbox.set(23)
         self.upsampling_factor_X_spinbox.grid(row=2, column=3)
 
-        label = Label(root, text='Upsampleing factor Y:')
+        label = Label(settings_frame, text='Upsampleing factor Y:')
         label.grid(row=3, column=1, columnspan=2)
-        self.upsampling_factor_Y_spinbox = Spinbox(root, from_=1, to=100, width=4)
+        self.upsampling_factor_Y_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
         self.upsampling_factor_Y_spinbox.set(23)
         self.upsampling_factor_Y_spinbox.grid(row=3, column=3)
         
-        label = Label(root, text='Upsampleing factor Z:')
+        label = Label(settings_frame, text='Upsampleing factor Z:')
         label.grid(row=4, column=1, columnspan=2)
-        self.upsampling_factor_Z_spinbox = Spinbox(root, from_=1, to=100, width=4)
+        self.upsampling_factor_Z_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
         self.upsampling_factor_Z_spinbox.set(23)
         self.upsampling_factor_Z_spinbox.grid(row=4, column=3)
 
-        self.snow_threshold_spinbox = Spinbox(root, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
+        self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
         self.snow_threshold_spinbox.set(0.9)
         self.snow_threshold_spinbox.grid(row=5, column=3)
 
         self.remove_snow = BooleanVar(value=True)
-        remove_snow_checkbox = Checkbutton(root, text='remove snow above x*max', variable=self.remove_snow)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=5, column=1, columnspan=2)
 
         self.is2D_video = BooleanVar(value=False)
-        is2D_video_checkbox = Checkbutton(root, text='2D Video', variable=self.is2D_video)
+        is2D_video_checkbox = Checkbutton(settings_frame, text='2D Video', variable=self.is2D_video)
         is2D_video_checkbox.grid(row=5, column=0,)
 
         self.do_x_correction = BooleanVar(value=False)
-        do_x_correction_checkbox = Checkbutton(root, text='X', variable=self.do_x_correction)
+        do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
         do_x_correction_checkbox.grid(row=2, column=0)
 
         self.do_y_correction = BooleanVar(value=False)
-        do_y_correction_checkbox = Checkbutton(root, text='Y', variable=self.do_y_correction)
+        do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=3, column=0)
 
         self.do_z_correction = BooleanVar(value=False)
-        do_z_correction_checkbox = Checkbutton(root, text='Z', variable=self.do_z_correction)
+        do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=4, column=0)
 
         self.rescale_image = BooleanVar(value=False)
-        rescale_image_checkbox = Checkbutton(root, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=7, column=1, columnspan=2)
+        rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
+        rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
 
-        open = Button(root, text='Open Image', command=self.open_image)
-        open.grid(row=7, column=0, columnspan=1)
+        # options for IRD
+
+        ird_frame = Frame(root)
+        ird_frame['borderwidth'] = 2
+        ird_frame['relief'] = 'groove'
+        ird_frame.grid(row=0, column =2)
+
+        self.new_range = StringVar()
+        range_entry = Entry(ird_frame, textvariable=self.new_range)
+        range_entry.grid(row=1, column=1)
+
+        add_button = Button(ird_frame, text='add range', command=self.add_range)
+        add_button.grid(row=1, column=2)
+
+        ranges = Text(ird_frame, width=20, height=8)
+        ranges.grid(row=2, column=1)
+
+        open_button = Button(root, text='Open Image', command=self.open_image)
+        open_button.grid(row=1, column=0, columnspan=1)
         
         process = Button(root, text='Process Image', command=self.process)
-        process.grid(row=7, column=3)
+        process.grid(row=1, column=1)
 
     def open_image(self):
         filenames = filedialog.askopenfilenames(filetypes=[("Raw Data","*.ird"),("Tiff files","*.tif"),("Tiff files","*.tiff")])
@@ -295,6 +317,10 @@ class App:
                 else:
                     print('Image dimension not supported!')
         
+    def add_range(self):
+        pass
+
+
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
             if self.filename.endswith('.tif'):
