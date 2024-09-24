@@ -501,8 +501,6 @@ class App:
         return remapped_image
 
 ### Snow removal ###
-    def compare_tuples(tuple1, tuple2):
-        return all(a < b for a, b in zip(tuple1, tuple2))
 
     def melt_snow(self,data,snow_value):
         filtered_data = data
