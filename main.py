@@ -196,8 +196,9 @@ class App:
         add_button = Button(ird_frame, text='add range', command=self.add_range)
         add_button.grid(row=1, column=2)
 
-        ranges = Text(ird_frame, width=20, height=8)
-        ranges.grid(row=2, column=1)
+        self.text_ranges = Text(ird_frame, width=20, height=8)
+        self.text_ranges.grid(row=2, column=1)
+        self.text_ranges.insert(INSERT, 'Ranges:')
 
         open_button = Button(root, text='Open Image', command=self.open_image)
         open_button.grid(row=1, column=0, columnspan=1)
@@ -206,6 +207,7 @@ class App:
         process.grid(row=1, column=1)
 
     def open_image(self):
+        self.ranges = []
         filenames = filedialog.askopenfilenames(filetypes=[("Raw Data","*.ird"),("Tiff files","*.tif"),("Tiff files","*.tiff")])
         self.filenames = list(filenames)
         if self.verbose.get():            
@@ -318,9 +320,16 @@ class App:
                     print('Image dimension not supported!')
         
     def add_range(self):
-        pass
+        self.text_ranges.delete(2.0, END)
+        a,b=self.new_range.get().split(':')
+        if (a,b) not in self.ranges:
+            new_start,new_end = self.new_range.get().split(':')
+            self.ranges.append((new_start,new_end))
+        print('Ranges:\n'+str(self.ranges))
 
-
+        for start,end in self.ranges:
+            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+        
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
             if self.filename.endswith('.tif'):
@@ -503,15 +512,26 @@ class App:
 
         self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
+    
+    def calc_t_dim(self,tif_shape):
+        new_t_dim = 0
+        for start,end in self.ranges:
+            new_t_dim = new_t_dim+int(end)-int(start)
 
-
+        if new_t_dim > 0:
+            t_dim = new_t_dim
+            tif_shape = (t_dim,tif_shape[-3],tif_shape[-2],tif_shape[-1])
+        else:
+            t_dim = tif_shape[-4]
+        return t_dim, tif_shape
+        
 
 
     def process_4D_ird(self):
         import napari_streamin.arrays 
         irdata = napari_streamin.arrays.VolumeArray(self.provider)
-        tif_shape = irdata.shape 
-        t_dim = tif_shape[-4]
+        tif_shape = irdata.shape
+        t_dim, tif_shape = self.calc_t_dim(tif_shape)
         snow_value = 0 
         self.axes = 'QQYX'
 
@@ -524,12 +544,21 @@ class App:
         # write data to memory-mapped array    
         print('Writing data to memory-mapped array')
 
-        for timepoints in range(t_dim):
-            data[timepoints] = irdata[timepoints,:,:,:]
+        # make sections iterable for loop
+        for start,end in self.ranges:
+            start,end = int(start),int(end)
+            try:
+                sections = np.append(sections,np.arange(start,end))
+            except UnboundLocalError:
+                sections = np.arange(start,end)
+        
+        #take only selected sections
+        for index in range(t_dim):
+            data[index] = irdata[sections[index],:,:,:]
             if self.melt:
-                snow_value = np.maximum(snow_value,np.amax(data[timepoints,:,:,:]))
-            if timepoints % 50 == 0:
-                    print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
+                snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+            if index % 50 == 0:
+                    print(str(index) + '/' + str(t_dim) + ' Volumes written')
             
         print('Data written to memory-mapped array')
         print('Max Snow value: '+str(snow_value))
