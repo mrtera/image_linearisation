@@ -170,15 +170,15 @@ class App:
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
         do_x_correction_checkbox.grid(row=2, column=0)
 
-        self.do_y_correction = BooleanVar(value=False)
+        self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=3, column=0)
 
-        self.do_z_correction = BooleanVar(value=False)
+        self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=4, column=0)
 
-        self.rescale_image = BooleanVar(value=False)
+        self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
         rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
 
@@ -778,7 +778,10 @@ class App:
         if not np.any(new_shape):
             if in_memmap:
                 data.flush()
-                path=self.in_memmap_filename.replace('_TEMP','_processed')
+                try:
+                    path=self.in_memmap_filename.replace('_TEMP','_processed')
+                except:
+                    pass
                 try:
                     os.rename(self.in_memmap_filename,path)
                     self.compress_image(path) 
@@ -815,7 +818,7 @@ class App:
                 data = tif.asarray()
                 tiff.imwrite(self.filename.replace('.tif','_processed.tif'),data,compression=('zlib',6))
                 print('Data compressed and saved')
-        except:
+        except np.core._exceptions._ArrayMemoryError:
             print('Data too large for RAM, saved uncompressed data instead')
         return                        
 
