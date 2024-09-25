@@ -239,18 +239,21 @@ class App:
         self.ranges = []
         filenames = filedialog.askopenfilenames(filetypes=[("Raw Data","*.ird"),("Tiff files","*.tif"),("Tiff files","*.tiff")])
         self.filenames = list(filenames)
-        if self.verbose.get():            
-            for filename in self.filenames:
-                if filename.endswith('.ird'):
-                    import rawdata
-                    import napari_streamin.arrays
-                    file = rawdata.InputFile()
-                    file.open(filename)
-                    provider = rawdata.ImageDataProvider(file,0)
-                    images = napari_streamin.arrays.VolumeArray(provider)
-                    print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
-                else:
+                   
+        for filename in self.filenames:
+            if filename.endswith('.ird'):
+                import rawdata
+                import napari_streamin.arrays
+                file = rawdata.InputFile()
+                file.open(filename)
+                provider = rawdata.ImageDataProvider(file,0)
+                images = napari_streamin.arrays.VolumeArray(provider)
+                print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
+                self.original_t_dim = images.shape[-4]
 
+        if self.verbose.get(): 
+            for filename in self.filenames:
+                if filename.endswith('.tif'):
                     with tiff.TiffFile(filename) as tif:
                         dim = tif.series[0].ndim
                         print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
@@ -350,16 +353,18 @@ class App:
         
     def add_range(self):
         self.text_ranges.delete(2.0, END)
-        if not self.new_range.get() == '':
-            a,b=self.new_range.get().replace(' ','').split(':')
-            if (a,b) not in self.ranges:
-                new_start,new_end = a,b
-                self.ranges.append((new_start,new_end))
-            print('Ranges:\n'+str(self.ranges))
-
-        for start,end in self.ranges:
-            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
-        self.new_range.set('')
+        try:
+            if not self.new_range.get() == '':
+                a,b=self.new_range.get().replace(' ','').split(':')
+                if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
+                    new_start,new_end = a,b
+                    self.ranges.append((new_start,new_end))
+                print('Ranges:\n'+str(self.ranges))
+            for start,end in self.ranges:
+                self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+            self.new_range.set('')
+        except AttributeError:
+                    print('Select a file first')
 
     def remove_last_range(self):
         self.ranges.pop()
