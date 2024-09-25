@@ -189,17 +189,46 @@ class App:
         ird_frame['relief'] = 'groove'
         ird_frame.grid(row=0, column =2)
 
+        ird_label = Label(ird_frame, text='add ranges for 4D .ird files:')
+        ird_label.grid(row=0, column=0, columnspan=3)
+
+        #add standard text to entry
+        def on_entry_click(event):
+            if range_entry.get() == 'start:end':
+                range_entry.delete(0, "end") # delete all the text in the entry
+                range_entry.insert(0, '') #Insert blank for user input
+
+        def on_focusout(event):
+            if range_entry.get() == '':
+                range_entry.insert(0, 'start:end')
+
+        # add range on return key
+        def on_return(event):
+            self.add_range()
+        
+        
         self.new_range = StringVar()
-        range_entry = Entry(ird_frame, textvariable=self.new_range)
+        range_entry = Entry(ird_frame, textvariable=self.new_range, width=13)
         range_entry.grid(row=1, column=1)
+        range_entry.insert(0, 'start:end')
+        range_entry.bind('<FocusIn>', on_entry_click)
+        range_entry.bind('<FocusOut>', on_focusout)
+        range_entry.bind('<Return>', on_return)
+
+
 
         add_button = Button(ird_frame, text='add range', command=self.add_range)
         add_button.grid(row=1, column=2)
 
-        self.text_ranges = Text(ird_frame, width=20, height=8)
-        self.text_ranges.grid(row=2, column=1)
+        remove_last_button = Button(ird_frame, text='remove last', command=self.remove_last_range)
+        remove_last_button.grid(row=2, column=2)
+
+        self.text_ranges = Text(ird_frame, width=10, height=7)
+        self.text_ranges.grid(row=2, column=1, rowspan=3)
         self.text_ranges.insert(INSERT, 'Ranges:')
 
+
+        # data buttons
         open_button = Button(root, text='Open Image', command=self.open_image)
         open_button.grid(row=1, column=0, columnspan=1)
         
@@ -321,14 +350,20 @@ class App:
         
     def add_range(self):
         self.text_ranges.delete(2.0, END)
-        a,b=self.new_range.get().split(':')
-        if (a,b) not in self.ranges:
-            new_start,new_end = self.new_range.get().split(':')
-            self.ranges.append((new_start,new_end))
-        print('Ranges:\n'+str(self.ranges))
+        if not self.new_range.get() == '':
+            a,b=self.new_range.get().replace(' ','').split(':')
+            if (a,b) not in self.ranges:
+                new_start,new_end = a,b
+                self.ranges.append((new_start,new_end))
+            print('Ranges:\n'+str(self.ranges))
 
         for start,end in self.ranges:
             self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+        self.new_range.set('')
+
+    def remove_last_range(self):
+        self.ranges.pop()
+        self.add_range()
         
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
@@ -808,7 +843,10 @@ class App:
 
     def save_image(self,file):
         print('compressing and saving data')
-        tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6))
+        if self.filename.endswith('.ird'):
+            tiff.imwrite(self.filename.replace('.ird','_processed.tif'),file,compression=('zlib', 6),metadata={'axes': self.axes})
+        else:
+            tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6),metadata={'axes': self.axes})
         print('Data compressed and saved')
 
     def compress_image(self,path):
