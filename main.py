@@ -463,7 +463,10 @@ class App:
         out_memmap = False
         snow_value = 0    
 
-            # make sections iterable for loop
+        if self.ranges == []:
+            self.ranges = [(0,self.original_t_dim)]
+
+        # make sections iterable for loop
         for start,end in self.ranges:
             start,end = int(start),int(end)
             try:
