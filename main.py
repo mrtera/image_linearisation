@@ -244,9 +244,9 @@ class App:
             if filename.endswith('.ird'):
                 import rawdata
                 import napari_streamin.arrays
-                file = rawdata.InputFile()
-                file.open(filename)
-                provider = rawdata.ImageDataProvider(file,0)
+                self.ird_file = rawdata.InputFile()
+                self.ird_file.open(filename)
+                provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(provider)
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 self.original_t_dim = images.shape[-4]
@@ -630,8 +630,9 @@ class App:
                     if self.verbose.get():
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
+        self.ird_file.close()
         data.flush()
-        self.save_data(data,new_shape,in_memmap,out_memmap)  
+        self.save_data(data,new_shape,in_memmap,out_memmap)
     
 
     def process_2Dt_ird(self):
