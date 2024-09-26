@@ -299,9 +299,9 @@ class App:
             if self.filename.endswith('.ird'):
                 import rawdata
                 import napari_streamin.arrays   
-                self.file = rawdata.InputFile()
-                self.file.open(self.filename)
-                self.provider = rawdata.ImageDataProvider(self.file,0)
+                self.ird_file = rawdata.InputFile()
+                self.ird_file.open(self.filename)
+                self.provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(self.provider)
                 
                 if images.shape[-3]==1:
@@ -546,7 +546,7 @@ class App:
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
         if self.filename.endswith('.ird'):
-                self.file.close()
+                self.ird_file.close()
         if in_memmap:
             data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)    
@@ -738,7 +738,7 @@ class App:
                     if self.verbose.get():
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
-        self.file.close()
+        self.ird_file.close()
         data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)  
         
