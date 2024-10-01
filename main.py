@@ -249,7 +249,7 @@ class App:
                 provider = rawdata.ImageDataProvider(file,0)
                 images = napari_streamin.arrays.VolumeArray(provider)
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
-                self.original_t_dim = images.shape[-4]
+                
 
     
         for filename in self.filenames:
@@ -261,8 +261,6 @@ class App:
             
                         try:
                             print('t dim = '+str(tif.series[0].shape[-4]))
-                            self.original_t_dim = tif.series[0].shape[-4]
-
                         except IndexError:
                             pass
                         try:
@@ -303,6 +301,7 @@ class App:
                 self.ird_file.open(self.filename)
                 self.provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(self.provider)
+                self.original_t_dim = images.shape[-4]
                 
                 if images.shape[-3]==1:
                     self.is_2D_video = True 
@@ -318,6 +317,7 @@ class App:
                     self.tif_shape = tif.series[0].shape
                     self.dtype = tif.pages[0].dtype
                     self.axes = tif.series[0].axes
+                    self.original_t_dim = tif.series[0].shape[-4]
 
                 if self.dim in [2,3] and not self.is2D:
 
