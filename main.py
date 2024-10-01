@@ -490,6 +490,13 @@ class App:
                 data = self.memap(tif_shape)
                 print('Writing data to memory-mapped array')
 
+            for index in range(t_dim):
+                data[index] = irdata[sections[index],:,:,:]
+                if self.melt:
+                    snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+                if index % 50 == 0:
+                            print(str(index) + '/' + str(t_dim) + ' Volumes written')
+
         elif self.filename.endswith('.tif'):   
             t_dim, z_dim, tif_shape = self.calc_dim(self.tif_shape)  
             # Load data either in RAM or as memmap
@@ -501,16 +508,6 @@ class App:
                 data = self.memap(tif_shape)
                 print('Writing data to memory-mapped array')
 
-        # write data to memory-mapped array    
-        if self.filename.endswith('.ird'):
-            for index in range(t_dim):
-                data[index] = irdata[sections[index],:,:,:]
-                if self.melt:
-                    snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
-                if index % 50 == 0:
-                            print(str(index) + '/' + str(t_dim) + ' Volumes written')
-
-        elif self.filename.endswith('.tif'):
             with tiff.TiffFile(self.filename) as tif:
                 for timepoints in range(t_dim):
                     for planes in range(z_dim):
@@ -519,7 +516,7 @@ class App:
                             snow_value = np.maximum(snow_value,np.amax(data[timepoints,planes]))
                     if timepoints % 50 == 0:
                         print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
-            print('Data written to memory-mapped array') 
+            print('Data written to memory-mapped array')
 
         # melt snow if selected
         if self.melt:
