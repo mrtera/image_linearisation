@@ -241,6 +241,7 @@ class App:
         self.filenames = list(filenames)
                    
         for filename in self.filenames:
+            print(len(self.filenames))
             if filename.endswith('.ird'):
                 import rawdata
                 import napari_streamin.arrays
@@ -250,10 +251,7 @@ class App:
                 images = napari_streamin.arrays.VolumeArray(provider)
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 
-
-    
-        for filename in self.filenames:
-            if filename.endswith('.tif'):
+            elif filename.endswith('.tif'):
                 with tiff.TiffFile(filename) as tif:
                     dim = tif.series[0].ndim
                     print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
@@ -280,6 +278,8 @@ class App:
                         print('Image dimension not supported') 
 
     def process(self):
+        if len(self.filenames)>1:
+            self.ranges = []
         
         self.upsampling_factor_X = int(self.upsampling_factor_X_spinbox.get())
         self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
@@ -310,14 +310,17 @@ class App:
                     self.is_3D_video = True
                     self.process_4D()
 
-            else:            
+            else:           
                 print("Processing: '"+self.filename+"' \nloading data")
                 with tiff.TiffFile(self.filename) as tif:
                     self.dim = tif.series[0].ndim
                     self.tif_shape = tif.series[0].shape
                     self.dtype = tif.pages[0].dtype
                     self.axes = tif.series[0].axes
-                    self.original_t_dim = tif.series[0].shape[-4]
+                    try:
+                        self.original_t_dim = tif.series[0].shape[-4]
+                    except IndexError:
+                        pass
 
                 if self.dim in [2,3] and not self.is2D:
 
@@ -453,11 +456,6 @@ class App:
         return new_array, memmap
 
 
-
-
-
-
-
     def process_4D(self):
         in_memmap = False
         out_memmap = False
@@ -520,8 +518,6 @@ class App:
 
         # melt snow if selected
         if self.melt:
-            print('Max Snow value: '+str(snow_value))
-            print('Remvoing snow above '+str(self.snow_threshold*snow_value))
             for timestep in range(t_dim):
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
                 if timestep % 50 == 0:
@@ -642,7 +638,6 @@ class App:
         # melt snow 2D if selected
         if self.melt:
             snow_value = np.amax(data)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
             print('Snow removed')
@@ -705,9 +700,7 @@ class App:
             if index % 50 == 0:
                     print(str(index) + '/' + str(t_dim) + ' Volumes written')
             
-        print('Data written to memory-mapped array')
-        print('Max Snow value: '+str(snow_value))
-        
+        print('Data written to memory-mapped array')        
         # melt snow if selected
         if self.melt:
             if not in_memmap:
@@ -765,7 +758,6 @@ class App:
         # melt snow 2D if selected
         if self.melt:
             snow_value = np.amax(data)
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
             print('Snow removed')
@@ -844,6 +836,9 @@ class App:
         return all(a < b for a, b in zip(tuple1, tuple2))
 
     def melt_snow(self,data,snow_value):
+        if self.verbose.get():
+            print('Max Snow value: '+str(snow_value))
+            print('Remvoing snow above '+str(self.snow_threshold*snow_value))
         filtered_data = data
         snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
         x_dim = data.shape[-1]
