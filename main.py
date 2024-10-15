@@ -237,7 +237,7 @@ class App:
 
     def open_image(self):
         self.ranges = []
-        filenames = filedialog.askopenfilenames(filetypes=[("Raw Data","*.ird"),("Tiff files","*.tif"),("Tiff files","*.tiff")])
+        filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif"),("SLIDE data","*.tiff")])
         self.filenames = list(filenames)
                    
         for filename in self.filenames:
