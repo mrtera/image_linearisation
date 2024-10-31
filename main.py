@@ -9,23 +9,29 @@ import numpy as np
 import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
-
+try:
+    import rawdata
+    import napari_streamin.arrays
+    print('success')
+except ImportError:
+    print('napari_streamin not found, can only process tif files')
 
 @jit(parallel=True)  
 def remapping3D(data,shape_array):
     ### upsampling by factor of 2 ###
     # if y:
-    zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-    for plane in prange(zoomed_image.shape[0]):
-        for row in prange(zoomed_image.shape[1]):
-            row_data = int(row/2)
-            if row % 2 == 0:
-                for pixel in prange(zoomed_image.shape[2]):
-                    zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-            else:
-                for pixel in prange(zoomed_image.shape[2]):
-                    zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-    data=zoomed_image
+    for n in range(0):
+        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+        for plane in prange(zoomed_image.shape[0]):
+            for row in prange(zoomed_image.shape[1]):
+                row_data = int(row/2)
+                if row % 2 == 0:
+                    for pixel in prange(zoomed_image.shape[2]):
+                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+                else:
+                    for pixel in prange(zoomed_image.shape[2]):
+                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+        data=zoomed_image
 
     dim=shape_array.shape[1]
     dim_original = data.shape[1]
@@ -164,7 +170,7 @@ class App:
 
         self.is2D_video = BooleanVar(value=False)
         is2D_video_checkbox = Checkbutton(settings_frame, text='2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=5, column=0,)
+        is2D_video_checkbox.grid(row=5, column=0)
 
         self.do_x_correction = BooleanVar(value=False)
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
@@ -242,8 +248,6 @@ class App:
                    
         for filename in self.filenames:
             if filename.endswith('.ird'):
-                import rawdata
-                import napari_streamin.arrays
                 self.ird_file = rawdata.InputFile()
                 self.ird_file.open(filename)
                 provider = rawdata.ImageDataProvider(self.ird_file,0)
@@ -451,10 +455,6 @@ class App:
                 new_array = self.memap(shape,name='_processed')
                 memmap = True
         return new_array, memmap
-
-
-
-
 
 
 
@@ -675,72 +675,72 @@ class App:
         return t_dim, z_dim, tif_shape
         
 
-    def process_4D_ird(self):
-        import napari_streamin.arrays 
-        irdata = napari_streamin.arrays.VolumeArray(self.provider)
-        tif_shape = irdata.shape
-        t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
-        snow_value = 0 
-        self.axes = 'QQYX'
+    # def process_4D_ird(self):
+    #     import napari_streamin.arrays 
+    #     irdata = napari_streamin.arrays.VolumeArray(self.provider)
+    #     tif_shape = irdata.shape
+    #     t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
+    #     snow_value = 0 
+    #     self.axes = 'QQYX'
 
-        # Load data as memmap
-        in_memmap = True
-        out_memmap = False
+    #     # Load data as memmap
+    #     in_memmap = True
+    #     out_memmap = False
 
-        print('loading to memmap')
-        data = self.memap(tif_shape)
-        # write data to memory-mapped array    
-        print('Writing data to memory-mapped array')
+    #     print('loading to memmap')
+    #     data = self.memap(tif_shape)
+    #     # write data to memory-mapped array    
+    #     print('Writing data to memory-mapped array')
 
-        # make sections iterable for loop
-        for start,end in self.ranges:
-            start,end = int(start),int(end)
-            try:
-                sections = np.append(sections,np.arange(start,end))
-            except UnboundLocalError:
-                sections = np.arange(start,end)
+    #     # make sections iterable for loop
+    #     for start,end in self.ranges:
+    #         start,end = int(start),int(end)
+    #         try:
+    #             sections = np.append(sections,np.arange(start,end))
+    #         except UnboundLocalError:
+    #             sections = np.arange(start,end)
         
-        #take only selected sections
-        for index in range(t_dim):
-            data[index] = irdata[sections[index],:,:,:]
-            if self.melt:
-                snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
-            if index % 50 == 0:
-                    print(str(index) + '/' + str(t_dim) + ' Volumes written')
+    #     #take only selected sections
+    #     for index in range(t_dim):
+    #         data[index] = irdata[sections[index],:,:,:]
+    #         if self.melt:
+    #             snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+    #         if index % 50 == 0:
+    #                 print(str(index) + '/' + str(t_dim) + ' Volumes written')
             
-        print('Data written to memory-mapped array')
-        print('Max Snow value: '+str(snow_value))
+    #     print('Data written to memory-mapped array')
+    #     print('Max Snow value: '+str(snow_value))
         
-        # melt snow if selected
-        if self.melt:
-            if not in_memmap:
-                print('getting snow value')
-                snow_value = np.amax(data)
-            print('Remvoing snow above '+str(self.snow_threshold*snow_value))
-            for timestep in range(t_dim):
-                data[timestep] = self.melt_snow(data[timestep],snow_value)
-                if timestep % 50 == 0:
-                    print('removed snow in '+str(timestep)+' Volumes')
-            print('Snow removed')
+    #     # melt snow if selected
+    #     if self.melt:
+    #         if not in_memmap:
+    #             print('getting snow value')
+    #             snow_value = np.amax(data)
+    #         print('Remvoing snow above '+str(self.snow_threshold*snow_value))
+    #         for timestep in range(t_dim):
+    #             data[timestep] = self.melt_snow(data[timestep],snow_value)
+    #             if timestep % 50 == 0:
+    #                 print('removed snow in '+str(timestep)+' Volumes')
+    #         print('Snow removed')
 
-        print('Creating tif with corrected aspect ratio')
-        new_shape,out_memmap = self.create_new_array(data)
+    #     print('Creating tif with corrected aspect ratio')
+    #     new_shape,out_memmap = self.create_new_array(data)
 
-        # process data
-        print('correcting for sin distorsion')
-        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
-            if self.verbose.get():
-                start=timer()
-            for timestep in range(t_dim):
-                new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                if timestep % 50 == 0:
-                    print('Volume '+str(timestep)+' corrected')
-                    if self.verbose.get():
-                        print('Time elapsed: '+str(timer()-start))
-                        start=timer()
-        self.file.close()
-        data.flush()
-        self.save_data(data,new_shape,in_memmap,out_memmap)  
+    #     # process data
+    #     print('correcting for sin distorsion')
+    #     if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
+    #         if self.verbose.get():
+    #             start=timer()
+    #         for timestep in range(t_dim):
+    #             new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
+    #             if timestep % 50 == 0:
+    #                 print('Volume '+str(timestep)+' corrected')
+    #                 if self.verbose.get():
+    #                     print('Time elapsed: '+str(timer()-start))
+    #                     start=timer()
+    #     self.file.close()
+    #     data.flush()
+    #     self.save_data(data,new_shape,in_memmap,out_memmap)  
         
     
 
@@ -801,7 +801,6 @@ class App:
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
             data = np.swapaxes(data,1,2)
-
 
         if y:
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
@@ -916,8 +915,6 @@ class App:
                     filtered_data[flakes] = np.round(np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)).astype('uint16')
                 else:
                     filtered_data[flakes] = 0
-
-
 
         return filtered_data
     
