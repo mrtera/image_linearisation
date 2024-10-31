@@ -667,70 +667,70 @@ class App:
         return t_dim, z_dim, tif_shape
         
 
-    def process_4D_ird(self):
-        import napari_streamin.arrays 
-        irdata = napari_streamin.arrays.VolumeArray(self.provider)
-        tif_shape = irdata.shape
-        t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
-        snow_value = 0 
-        self.axes = 'QQYX'
+    # def process_4D_ird(self):
+    #     import napari_streamin.arrays 
+    #     irdata = napari_streamin.arrays.VolumeArray(self.provider)
+    #     tif_shape = irdata.shape
+    #     t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
+    #     snow_value = 0 
+    #     self.axes = 'QQYX'
 
-        # Load data as memmap
-        in_memmap = True
-        out_memmap = False
+    #     # Load data as memmap
+    #     in_memmap = True
+    #     out_memmap = False
 
-        print('loading to memmap')
-        data = self.memap(tif_shape)
-        # write data to memory-mapped array    
-        print('Writing data to memory-mapped array')
+    #     print('loading to memmap')
+    #     data = self.memap(tif_shape)
+    #     # write data to memory-mapped array    
+    #     print('Writing data to memory-mapped array')
 
-        # make sections iterable for loop
-        for start,end in self.ranges:
-            start,end = int(start),int(end)
-            try:
-                sections = np.append(sections,np.arange(start,end))
-            except UnboundLocalError:
-                sections = np.arange(start,end)
+    #     # make sections iterable for loop
+    #     for start,end in self.ranges:
+    #         start,end = int(start),int(end)
+    #         try:
+    #             sections = np.append(sections,np.arange(start,end))
+    #         except UnboundLocalError:
+    #             sections = np.arange(start,end)
         
-        #take only selected sections
-        for index in range(t_dim):
-            data[index] = irdata[sections[index],:,:,:]
-            if self.melt:
-                snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
-            if index % 50 == 0:
-                    print(str(index) + '/' + str(t_dim) + ' Volumes written')
+    #     #take only selected sections
+    #     for index in range(t_dim):
+    #         data[index] = irdata[sections[index],:,:,:]
+    #         if self.melt:
+    #             snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+    #         if index % 50 == 0:
+    #                 print(str(index) + '/' + str(t_dim) + ' Volumes written')
             
-        print('Data written to memory-mapped array')        
-        # melt snow if selected
-        if self.melt:
-            if not in_memmap:
-                print('getting snow value')
-                snow_value = np.amax(data)
-            print('Remvoing snow above '+str(self.snow_threshold*snow_value))
-            for timestep in range(t_dim):
-                data[timestep] = self.melt_snow(data[timestep],snow_value)
-                if timestep % 50 == 0:
-                    print('removed snow in '+str(timestep)+' Volumes')
-            print('Snow removed')
+    #     print('Data written to memory-mapped array')        
+    #     # melt snow if selected
+    #     if self.melt:
+    #         if not in_memmap:
+    #             print('getting snow value')
+    #             snow_value = np.amax(data)
+    #         print('Remvoing snow above '+str(self.snow_threshold*snow_value))
+    #         for timestep in range(t_dim):
+    #             data[timestep] = self.melt_snow(data[timestep],snow_value)
+    #             if timestep % 50 == 0:
+    #                 print('removed snow in '+str(timestep)+' Volumes')
+    #         print('Snow removed')
 
-        print('Creating tif with corrected aspect ratio')
-        new_shape,out_memmap = self.create_new_array(data)
+    #     print('Creating tif with corrected aspect ratio')
+    #     new_shape,out_memmap = self.create_new_array(data)
 
-        # process data
-        print('correcting for sin distorsion')
-        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
-            if self.verbose.get():
-                start=timer()
-            for timestep in range(t_dim):
-                new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                if timestep % 50 == 0:
-                    print('Volume '+str(timestep)+' corrected')
-                    if self.verbose.get():
-                        print('Time elapsed: '+str(timer()-start))
-                        start=timer()
-        self.ird_file.close()
-        data.flush()
-        self.save_data(data,new_shape,in_memmap,out_memmap)  
+    #     # process data
+    #     print('correcting for sin distorsion')
+    #     if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
+    #         if self.verbose.get():
+    #             start=timer()
+    #         for timestep in range(t_dim):
+    #             new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
+    #             if timestep % 50 == 0:
+    #                 print('Volume '+str(timestep)+' corrected')
+    #                 if self.verbose.get():
+    #                     print('Time elapsed: '+str(timer()-start))
+    #                     start=timer()
+    #     self.ird_file.close()
+    #     data.flush()
+    #     self.save_data(data,new_shape,in_memmap,out_memmap)  
         
     
 
