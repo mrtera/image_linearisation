@@ -12,7 +12,6 @@ from timeit import default_timer as timer
 try:
     import rawdata
     import napari_streamin.arrays
-    print('success')
 except ImportError:
     print('napari_streamin not found, can only process tif files')
 
@@ -257,7 +256,7 @@ class App:
 
     
         for filename in self.filenames:
-            if filename.endswith('.tif'):
+            if filename.endswith('.tif') or filename.endswith('.tiff'):
                 with tiff.TiffFile(filename) as tif:
                     dim = tif.series[0].ndim
                     print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
@@ -915,6 +914,8 @@ class App:
                     filtered_data[flakes] = np.round(np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)).astype('uint16')
                 else:
                     filtered_data[flakes] = 0
+
+            print('Snow removed')
 
         return filtered_data
     
