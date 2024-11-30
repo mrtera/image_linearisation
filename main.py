@@ -15,6 +15,7 @@ try:
 except ImportError:
     print('napari_streamin not found, can only process tif files')
 
+### Functions for paralell processing ###
 @jit(parallel=True)  
 def remapping3D(data,shape_array):
     ### upsampling by factor of 2 ###
@@ -124,8 +125,11 @@ def remapping1D(zoomed_image,shape_array):
         
     return remapped_image
 
+##### begin of UI class #####
 class App:
     def __init__(self, root):
+
+        # UI elements
         self.root = root
         self.root.title('Image Processing')
 
@@ -188,7 +192,6 @@ class App:
         rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
 
         # options for IRD
-
         ird_frame = Frame(root)
         ird_frame['borderwidth'] = 2
         ird_frame['relief'] = 'groove'
@@ -240,9 +243,10 @@ class App:
         process = Button(root, text='Process Image', command=self.process)
         process.grid(row=1, column=1)
 
+
     def open_image(self):
         self.ranges = []
-        filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif")]) # add tiff files
+        filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif"),("SLIDE data","*.tiff")])
         self.filenames = list(filenames)
                    
         for filename in self.filenames:
@@ -254,7 +258,7 @@ class App:
                 images = napari_streamin.arrays.VolumeArray(provider)
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 
-            elif filename.endswith('.tif'):
+            elif filename.endswith('.tif') or filename.endswith('.tiff'):
                 with tiff.TiffFile(filename) as tif:
                     dim = tif.series[0].ndim
                     print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
@@ -292,6 +296,7 @@ class App:
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
+            self.is_tiff = False
             self.is_single_frame = False
             self.is_single_volume = False
             self.is_2D_video = False
@@ -313,7 +318,8 @@ class App:
                     self.is_3D_video = True
                     self.process_4D()
 
-            else:           
+            elif self.filename.endswith('.tif') or self.filename.endswith('.tiff'):
+                self.is_tiff = True           
                 print("Processing: '"+self.filename+"' \nloading data")
                 with tiff.TiffFile(self.filename) as tif:
                     self.dim = tif.series[0].ndim
@@ -358,6 +364,8 @@ class App:
 
                 else:
                     print('Image dimension not supported!')
+            else:
+                print('File format not supported')
         
     def add_range(self):
         self.text_ranges.delete(2.0, END)
@@ -380,7 +388,7 @@ class App:
         
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
-            if self.filename.endswith('.tif'):
+            if self.is_tiff:
                 memmap_filename = self.filename.replace('.tif',name+'.tif')
             elif self.filename.endswith('.ird'):
                 memmap_filename = self.filename.replace('.ird',name+'.tif')
@@ -498,7 +506,7 @@ class App:
                 if index % 50 == 0:
                             print(str(index) + '/' + str(t_dim) + ' Volumes written')
 
-        elif self.filename.endswith('.tif'):   
+        elif self.is_tiff:   
             t_dim, z_dim, tif_shape = self.calc_dim(self.tif_shape)  
             # Load data either in RAM or as memmap
             try:
