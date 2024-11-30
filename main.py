@@ -526,7 +526,6 @@ class App:
             # Load data either in RAM or as memmap
             try:
                 data = np.zeros(tif_shape,dtype=np.uint16)
-                print('loading data')
             except np.core._exceptions._ArrayMemoryError:
                 in_memmap = True
                 print('MemoryError: File too large for RAM, loading data to memory-mapped array')
