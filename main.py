@@ -9,23 +9,28 @@ import numpy as np
 import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
-
+try:
+    import rawdata
+    import napari_streamin.arrays
+except ImportError:
+    print('napari_streamin not found, can only process tif files')
 
 @jit(parallel=True)  
 def remapping3D(data,shape_array):
     ### upsampling by factor of 2 ###
     # if y:
-    zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-    for plane in prange(zoomed_image.shape[0]):
-        for row in prange(zoomed_image.shape[1]):
-            row_data = int(row/2)
-            if row % 2 == 0:
-                for pixel in prange(zoomed_image.shape[2]):
-                    zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-            else:
-                for pixel in prange(zoomed_image.shape[2]):
-                    zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-    data=zoomed_image
+    for n in range(0):
+        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+        for plane in prange(zoomed_image.shape[0]):
+            for row in prange(zoomed_image.shape[1]):
+                row_data = int(row/2)
+                if row % 2 == 0:
+                    for pixel in prange(zoomed_image.shape[2]):
+                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+                else:
+                    for pixel in prange(zoomed_image.shape[2]):
+                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+        data=zoomed_image
 
     dim=shape_array.shape[1]
     dim_original = data.shape[1]
@@ -164,7 +169,7 @@ class App:
 
         self.is2D_video = BooleanVar(value=False)
         is2D_video_checkbox = Checkbutton(settings_frame, text='2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=5, column=0,)
+        is2D_video_checkbox.grid(row=5, column=0)
 
         self.do_x_correction = BooleanVar(value=False)
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
@@ -237,17 +242,15 @@ class App:
 
     def open_image(self):
         self.ranges = []
-        filenames = filedialog.askopenfilenames(filetypes=[("Raw Data","*.ird"),("Tiff files","*.tif"),("Tiff files","*.tiff")])
+        filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif")]) # add tiff files
         self.filenames = list(filenames)
                    
         for filename in self.filenames:
             print(len(self.filenames))
             if filename.endswith('.ird'):
-                import rawdata
-                import napari_streamin.arrays
-                file = rawdata.InputFile()
-                file.open(filename)
-                provider = rawdata.ImageDataProvider(file,0)
+                self.ird_file = rawdata.InputFile()
+                self.ird_file.open(filename)
+                provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(provider)
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 
@@ -674,11 +677,22 @@ class App:
     #     t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
     #     snow_value = 0 
     #     self.axes = 'QQYX'
+    # def process_4D_ird(self):
+    #     import napari_streamin.arrays 
+    #     irdata = napari_streamin.arrays.VolumeArray(self.provider)
+    #     tif_shape = irdata.shape
+    #     t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
+    #     snow_value = 0 
+    #     self.axes = 'QQYX'
 
     #     # Load data as memmap
     #     in_memmap = True
     #     out_memmap = False
 
+    #     print('loading to memmap')
+    #     data = self.memap(tif_shape)
+    #     # write data to memory-mapped array    
+    #     print('Writing data to memory-mapped array')
     #     print('loading to memmap')
     #     data = self.memap(tif_shape)
     #     # write data to memory-mapped array    
@@ -691,7 +705,21 @@ class App:
     #             sections = np.append(sections,np.arange(start,end))
     #         except UnboundLocalError:
     #             sections = np.arange(start,end)
+    #     # make sections iterable for loop
+    #     for start,end in self.ranges:
+    #         start,end = int(start),int(end)
+    #         try:
+    #             sections = np.append(sections,np.arange(start,end))
+    #         except UnboundLocalError:
+    #             sections = np.arange(start,end)
         
+    #     #take only selected sections
+    #     for index in range(t_dim):
+    #         data[index] = irdata[sections[index],:,:,:]
+    #         if self.melt:
+    #             snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+    #         if index % 50 == 0:
+    #                 print(str(index) + '/' + str(t_dim) + ' Volumes written')
     #     #take only selected sections
     #     for index in range(t_dim):
     #         data[index] = irdata[sections[index],:,:,:]
@@ -713,6 +741,8 @@ class App:
     #                 print('removed snow in '+str(timestep)+' Volumes')
     #         print('Snow removed')
 
+    #     print('Creating tif with corrected aspect ratio')
+    #     new_shape,out_memmap = self.create_new_array(data)
     #     print('Creating tif with corrected aspect ratio')
     #     new_shape,out_memmap = self.create_new_array(data)
 
@@ -791,7 +821,6 @@ class App:
             data = remapped_data
             data = np.swapaxes(data,1,2)
 
-
         if y:
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
             remapped_data = remapping3D(data,shape_array)
@@ -832,8 +861,6 @@ class App:
         return remapped_image
 
 ### Snow removal ###
-    def compare_tuples(tuple1, tuple2):
-        return all(a < b for a, b in zip(tuple1, tuple2))
 
     def melt_snow(self,data,snow_value):
         if self.verbose.get():
@@ -911,7 +938,7 @@ class App:
                 else:
                     filtered_data[flakes] = 0
 
-
+            print('Snow removed')
 
         return filtered_data
     
