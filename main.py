@@ -242,7 +242,7 @@ class App:
 
     def open_image(self):
         self.ranges = []
-        filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif"),("SLIDE data","*.tiff")])
+        filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif")]) # add tiff files
         self.filenames = list(filenames)
                    
         for filename in self.filenames:
@@ -256,7 +256,7 @@ class App:
 
     
         for filename in self.filenames:
-            if filename.endswith('.tif') or filename.endswith('.tiff'):
+            if filename.endswith('.tif'):
                 with tiff.TiffFile(filename) as tif:
                     dim = tif.series[0].ndim
                     print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
