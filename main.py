@@ -223,8 +223,6 @@ class App:
         range_entry.bind('<FocusOut>', on_focusout)
         range_entry.bind('<Return>', on_return)
 
-
-
         add_button = Button(ird_frame, text='add range', command=self.add_range)
         add_button.grid(row=1, column=2)
 
@@ -385,6 +383,21 @@ class App:
     def remove_last_range(self):
         self.ranges.pop()
         self.add_range()
+
+
+    def calc_dim(self,tif_shape):
+        new_t_dim = 0
+        for start,end in self.ranges:
+            new_t_dim = new_t_dim+int(end)-int(start)
+
+        if new_t_dim > 0:
+            t_dim = new_t_dim
+            tif_shape = (t_dim,tif_shape[-3],tif_shape[-2],tif_shape[-1])
+        else:
+            t_dim = tif_shape[-4]
+        z_dim = tif_shape[-3]
+        return t_dim, z_dim, tif_shape
+    
         
     def memap(self,shape,name='_TEMP'):
             # create a memmory mapped array to enable processing of larger than RAM files:
@@ -410,6 +423,7 @@ class App:
             # memory map numpy array to data in OME-TIFF file
             memap_stack = tiff.memmap(memmap_filename)
             return memap_stack
+    
 
     def create_new_array(self,data): 
         memmap = False
@@ -505,17 +519,18 @@ class App:
                     snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
                 if index % 50 == 0:
                             print(str(index) + '/' + str(t_dim) + ' Volumes written')
+                            
 
         elif self.is_tiff:   
             t_dim, z_dim, tif_shape = self.calc_dim(self.tif_shape)  
             # Load data either in RAM or as memmap
             try:
                 data = np.zeros(tif_shape,dtype=np.uint16)
+                print('loading data')
             except np.core._exceptions._ArrayMemoryError:
                 in_memmap = True
-                print('MemoryError: File too large for RAM, writing original data to memmap')
+                print('MemoryError: File too large for RAM, loading data to memory-mapped array')
                 data = self.memap(tif_shape)
-                print('Writing data to memory-mapped array')
 
             with tiff.TiffFile(self.filename) as tif:
                 for timepoints in range(t_dim):
@@ -524,8 +539,8 @@ class App:
                         if self.melt:
                             snow_value = np.maximum(snow_value,np.amax(data[timepoints,planes]))
                     if timepoints % 50 == 0:
-                        print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
-            print('Data written to memory-mapped array')
+                        print('loading '+ str(timepoints) + '/' + str(t_dim) + ' volumes')
+            print('Data loaded')
 
         # melt snow if selected
         if self.melt:
@@ -533,7 +548,6 @@ class App:
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
                 if timestep % 50 == 0:
                     print('removed snow in '+str(timestep)+' Volumes')
-            print('Snow removed')
 
         print('Creating tif with corrected aspect ratio')
         new_shape,out_memmap = self.create_new_array(data)
@@ -545,7 +559,7 @@ class App:
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
                 if timestep % 50 == 0:
-                    print('Volume '+str(timestep)+' corrected')
+                    print(str(timestep)+' volumes corrected')
                     if self.verbose.get():
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
@@ -555,75 +569,6 @@ class App:
             data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)    
 
-
-
-
-
-
-
-
-    # def process_4D(self):
-    #     # Load data either in RAM or as memmap
-    #     in_memmap = False
-    #     out_memmap = False
-    #     try:
-    #         with tiff.TiffFile(self.filename) as tif:
-    #             data = tif.asarray()
-    #             t_dim = tif.series[0].shape[-4]
-    #             z_dim = tif.series[0].shape[-3]
-    #             print('Data loaded into RAM')
-    #     except np.core._exceptions._ArrayMemoryError:
-    #         in_memmap = True
-    #         print('MemoryError: File too large for RAM, writing original data to memmap')
-    #         data = self.memap(self.tif_shape)
-    #         # write data to memory-mapped array    
-    #         print('Writing data to memory-mapped array')
-    #         with tiff.TiffFile(self.filename) as tif:
-    #             t_dim = tif.series[0].shape[-4]
-    #             z_dim = tif.series[0].shape[-3]
-    #             start=timer()
-    #             if self.melt:
-    #                 snow_value = 0                   
-    #             for timepoints in range(t_dim):
-    #                 for volumes in range(z_dim):
-    #                     data[timepoints,volumes] = tif.pages[timepoints*z_dim+volumes].asarray()
-    #                     if self.melt:
-    #                         snow_value = np.maximum(snow_value,np.amax(data[timepoints,volumes]))
-    #                 if timepoints % 50 == 0:
-    #                     print(str(timepoints) + '/' + str(t_dim) + ' Volumes written')
-    #                     print('Time elapsed: '+str(timer()-start))
-    #                     start=timer()
-    #         print('Data written to memory-mapped array') 
-
-    #     # melt snow if selected
-    #     if self.melt:
-    #         if not in_memmap:
-    #             print('getting snow value')
-    #             snow_value = np.amax(data)
-    #         print('Remvoing snow above '+str(self.snow_threshold*snow_value))
-    #         for timestep in range(t_dim):
-    #             data[timestep] = self.melt_snow(data[timestep],snow_value)
-    #             if timestep % 50 == 0:
-    #                 print('removed snow in '+str(timestep)+' Volumes')
-    #         print('Snow removed')
-
-    #     print('Creating tif with corrected aspect ratio')
-    #     new_shape,out_memmap = self.create_new_array(data)
-
-    #     # process data
-    #     print('correcting for sin distorsion')
-    #     if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
-    #         start=timer()
-    #         for timestep in range(t_dim):
-    #             new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-    #             if timestep % 50 == 0:
-    #                 print('Volume '+str(timestep)+' corrected')
-    #                 if self.verbose.get():
-    #                     print('Time elapsed: '+str(timer()-start))
-    #                     start=timer()
-                
-        
-    #     self.save_data(data,new_shape,in_memmap,out_memmap)    
      
     def process_2Dt(self):
         in_memmap = False
@@ -651,7 +596,6 @@ class App:
             snow_value = np.amax(data)
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
-            print('Snow removed')
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
@@ -663,114 +607,7 @@ class App:
 
         self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
-    
-    def calc_dim(self,tif_shape):
-        new_t_dim = 0
-        for start,end in self.ranges:
-            new_t_dim = new_t_dim+int(end)-int(start)
-
-        if new_t_dim > 0:
-            t_dim = new_t_dim
-            tif_shape = (t_dim,tif_shape[-3],tif_shape[-2],tif_shape[-1])
-        else:
-            t_dim = tif_shape[-4]
-        z_dim = tif_shape[-3]
-        return t_dim, z_dim, tif_shape
-        
-
-    # def process_4D_ird(self):
-    #     import napari_streamin.arrays 
-    #     irdata = napari_streamin.arrays.VolumeArray(self.provider)
-    #     tif_shape = irdata.shape
-    #     t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
-    #     snow_value = 0 
-    #     self.axes = 'QQYX'
-    # def process_4D_ird(self):
-    #     import napari_streamin.arrays 
-    #     irdata = napari_streamin.arrays.VolumeArray(self.provider)
-    #     tif_shape = irdata.shape
-    #     t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
-    #     snow_value = 0 
-    #     self.axes = 'QQYX'
-
-    #     # Load data as memmap
-    #     in_memmap = True
-    #     out_memmap = False
-
-    #     print('loading to memmap')
-    #     data = self.memap(tif_shape)
-    #     # write data to memory-mapped array    
-    #     print('Writing data to memory-mapped array')
-    #     print('loading to memmap')
-    #     data = self.memap(tif_shape)
-    #     # write data to memory-mapped array    
-    #     print('Writing data to memory-mapped array')
-
-    #     # make sections iterable for loop
-    #     for start,end in self.ranges:
-    #         start,end = int(start),int(end)
-    #         try:
-    #             sections = np.append(sections,np.arange(start,end))
-    #         except UnboundLocalError:
-    #             sections = np.arange(start,end)
-    #     # make sections iterable for loop
-    #     for start,end in self.ranges:
-    #         start,end = int(start),int(end)
-    #         try:
-    #             sections = np.append(sections,np.arange(start,end))
-    #         except UnboundLocalError:
-    #             sections = np.arange(start,end)
-        
-    #     #take only selected sections
-    #     for index in range(t_dim):
-    #         data[index] = irdata[sections[index],:,:,:]
-    #         if self.melt:
-    #             snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
-    #         if index % 50 == 0:
-    #                 print(str(index) + '/' + str(t_dim) + ' Volumes written')
-    #     #take only selected sections
-    #     for index in range(t_dim):
-    #         data[index] = irdata[sections[index],:,:,:]
-    #         if self.melt:
-    #             snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
-    #         if index % 50 == 0:
-    #                 print(str(index) + '/' + str(t_dim) + ' Volumes written')
             
-    #     print('Data written to memory-mapped array')        
-    #     # melt snow if selected
-    #     if self.melt:
-    #         if not in_memmap:
-    #             print('getting snow value')
-    #             snow_value = np.amax(data)
-    #         print('Remvoing snow above '+str(self.snow_threshold*snow_value))
-    #         for timestep in range(t_dim):
-    #             data[timestep] = self.melt_snow(data[timestep],snow_value)
-    #             if timestep % 50 == 0:
-    #                 print('removed snow in '+str(timestep)+' Volumes')
-    #         print('Snow removed')
-
-    #     print('Creating tif with corrected aspect ratio')
-    #     new_shape,out_memmap = self.create_new_array(data)
-    #     print('Creating tif with corrected aspect ratio')
-    #     new_shape,out_memmap = self.create_new_array(data)
-
-    #     # process data
-    #     print('correcting for sin distorsion')
-    #     if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
-    #         if self.verbose.get():
-    #             start=timer()
-    #         for timestep in range(t_dim):
-    #             new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-    #             if timestep % 50 == 0:
-    #                 print('Volume '+str(timestep)+' corrected')
-    #                 if self.verbose.get():
-    #                     print('Time elapsed: '+str(timer()-start))
-    #                     start=timer()
-    #     self.ird_file.close()
-    #     data.flush()
-    #     self.save_data(data,new_shape,in_memmap,out_memmap)  
-        
-    
 
     def process_2Dt_ird(self):
         in_memmap = False
@@ -798,7 +635,6 @@ class App:
             snow_value = np.amax(data)
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
-            print('Snow removed')
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
@@ -945,8 +781,6 @@ class App:
                     filtered_data[flakes] = np.round(np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)).astype('uint16')
                 else:
                     filtered_data[flakes] = 0
-
-            print('Snow removed')
 
         return filtered_data
     
