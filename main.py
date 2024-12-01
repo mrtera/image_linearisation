@@ -17,21 +17,39 @@ except ImportError:
 
 ### Functions for paralell processing ###
 @jit(parallel=True)  
-def remapping3D(data,shape_array):
+def remapping3D(data,shape_array,factor=32): # factor must be in (2,4,8,16,32,...)
     ### upsampling by factor of 2 ###
     # if y:
-    for n in range(0):
-        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-        for plane in prange(zoomed_image.shape[0]):
-            for row in prange(zoomed_image.shape[1]):
-                row_data = int(row/2)
-                if row % 2 == 0:
-                    for pixel in prange(zoomed_image.shape[2]):
-                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                else:
-                    for pixel in prange(zoomed_image.shape[2]):
-                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-        data=zoomed_image
+
+    # Berechne die neue Zeilenanzahl
+    new_row_count = data.shape[1] * factor
+    
+    # Initialisiere das neue vergrößerte Bild
+    zoomed_image = np.zeros((data.shape[0], new_row_count, data.shape[2]), dtype='uint16')
+    
+    # Parallelisiere über Ebenen
+    for plane in prange(data.shape[0]):
+        for row in prange(data.shape[1]):
+            # Berechne Start- und Endindizes für die interpolierten Zeilen
+            start = row * factor
+            end = start + factor
+            
+            # Fülle den ersten interpolierten Wert mit dem Originalwert
+            zoomed_image[plane, start, :] = data[plane, row, :]
+            
+            # Interpoliere die dazwischenliegenden Werte (wenn `factor > 1`)
+            if factor > 1 and row < data.shape[1] - 1:
+                next_row = data[plane, row + 1, :]
+                for i in range(1, factor):
+                    alpha = i / factor
+                    zoomed_image[plane, start + i, :] = (
+                        (1 - alpha) * data[plane, row, :] + alpha * next_row
+                    ).astype('uint16')
+            
+            # Für die letzte Originalzeile: Fülle alle interpolierten Werte mit dem letzten Wert
+            elif factor > 1 and row == data.shape[1] - 1:
+                for i in range(1, factor):
+                    zoomed_image[plane, start + i, :] = data[plane, row, :]
 
     dim=shape_array.shape[1]
     dim_original = data.shape[1]
@@ -839,3 +857,4 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+# %%
