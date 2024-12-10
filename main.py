@@ -17,21 +17,36 @@ except ImportError:
 
 ### Functions for paralell processing ###
 @jit(parallel=True)  
-def remapping3D(data,shape_array):
-    ### upsampling by factor of 2 ###
-    # if y:
-    for n in range(0):
-        zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-        for plane in prange(zoomed_image.shape[0]):
-            for row in prange(zoomed_image.shape[1]):
-                row_data = int(row/2)
-                if row % 2 == 0:
-                    for pixel in prange(zoomed_image.shape[2]):
-                        zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-                else:
-                    for pixel in prange(zoomed_image.shape[2]):
-                        zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-        data=zoomed_image
+def remapping3D(data,shape_array,factor=32): # factor must be in (2,4,8,16,32,...)
+    # calculate new row count
+    new_row_count = data.shape[1] * factor
+    
+    # create new array for the zoomed image
+    zoomed_image = np.zeros((data.shape[0], new_row_count, data.shape[2]), dtype='uint16')
+    
+    # parallelize the loop over planes and rows
+    for plane in prange(data.shape[0]):
+        for row in prange(data.shape[1]):
+            # calculate the start and end index for the interpolated rows
+            start = row * factor
+            end = start + factor
+            
+            # fill the start row with the original data
+            zoomed_image[plane, start, :] = data[plane, row, :]
+            
+            # interpolate between the original rows
+            if factor > 1 and row < data.shape[1] - 1:
+                next_row = data[plane, row + 1, :]
+                for i in range(1, factor):
+                    alpha = i / factor
+                    zoomed_image[plane, start + i, :] = (
+                        (1 - alpha) * data[plane, row, :] + alpha * next_row
+                    ).astype('uint16')
+            
+            # fill the end row with the original data
+            elif factor > 1 and row == data.shape[1] - 1:
+                for i in range(1, factor):
+                    zoomed_image[plane, start + i, :] = data[plane, row, :]
 
     dim=shape_array.shape[1]
     dim_original = data.shape[1]
@@ -263,7 +278,8 @@ class App:
                     if dim in [2,3,4] and not self.is2D_video.get():
             
                         try:
-                            print('t dim = '+str(tif.series[0].shape[-4]))
+                            self.original_t_dim = tif.series[0].shape[-4]
+                            print('t dim = '+str(self.original_t_dim))
                         except IndexError:
                             pass
                         try:
@@ -367,18 +383,18 @@ class App:
         
     def add_range(self):
         self.text_ranges.delete(2.0, END)
-        try:
-            if not self.new_range.get() == '':
-                a,b=self.new_range.get().replace(' ','').split(':')
-                if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
-                    new_start,new_end = a,b
-                    self.ranges.append((new_start,new_end))
-                print('Ranges:\n'+str(self.ranges))
-            for start,end in self.ranges:
-                self.text_ranges.insert(INSERT, '\n'+start+':'+end)
-            self.new_range.set('')
-        except AttributeError:
-                    print('Select a file first')
+        # try:
+        if not self.new_range.get() == '':
+            a,b=self.new_range.get().replace(' ','').split(':')
+            if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
+                new_start,new_end = a,b
+                self.ranges.append((new_start,new_end))
+            print('Ranges:\n'+str(self.ranges))
+        for start,end in self.ranges:
+            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+        self.new_range.set('')
+        # except AttributeError:
+                    # print('Select a file first')
 
     def remove_last_range(self):
         self.ranges.pop()
@@ -839,3 +855,4 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+# %%
