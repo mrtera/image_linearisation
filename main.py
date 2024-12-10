@@ -18,26 +18,23 @@ except ImportError:
 ### Functions for paralell processing ###
 @jit(parallel=True)  
 def remapping3D(data,shape_array,factor=32): # factor must be in (2,4,8,16,32,...)
-    ### upsampling by factor of 2 ###
-    # if y:
-
-    # Berechne die neue Zeilenanzahl
+    # calculate new row count
     new_row_count = data.shape[1] * factor
     
-    # Initialisiere das neue vergrößerte Bild
+    # create new array for the zoomed image
     zoomed_image = np.zeros((data.shape[0], new_row_count, data.shape[2]), dtype='uint16')
     
-    # Parallelisiere über Ebenen
+    # parallelize the loop over planes and rows
     for plane in prange(data.shape[0]):
         for row in prange(data.shape[1]):
-            # Berechne Start- und Endindizes für die interpolierten Zeilen
+            # calculate the start and end index for the interpolated rows
             start = row * factor
             end = start + factor
             
-            # Fülle den ersten interpolierten Wert mit dem Originalwert
+            # fill the start row with the original data
             zoomed_image[plane, start, :] = data[plane, row, :]
             
-            # Interpoliere die dazwischenliegenden Werte (wenn `factor > 1`)
+            # interpolate between the original rows
             if factor > 1 and row < data.shape[1] - 1:
                 next_row = data[plane, row + 1, :]
                 for i in range(1, factor):
@@ -46,7 +43,7 @@ def remapping3D(data,shape_array,factor=32): # factor must be in (2,4,8,16,32,..
                         (1 - alpha) * data[plane, row, :] + alpha * next_row
                     ).astype('uint16')
             
-            # Für die letzte Originalzeile: Fülle alle interpolierten Werte mit dem letzten Wert
+            # fill the end row with the original data
             elif factor > 1 and row == data.shape[1] - 1:
                 for i in range(1, factor):
                     zoomed_image[plane, start + i, :] = data[plane, row, :]
@@ -281,7 +278,8 @@ class App:
                     if dim in [2,3,4] and not self.is2D_video.get():
             
                         try:
-                            print('t dim = '+str(tif.series[0].shape[-4]))
+                            self.original_t_dim = tif.series[0].shape[-4]
+                            print('t dim = '+str(self.original_t_dim))
                         except IndexError:
                             pass
                         try:
@@ -385,18 +383,18 @@ class App:
         
     def add_range(self):
         self.text_ranges.delete(2.0, END)
-        try:
-            if not self.new_range.get() == '':
-                a,b=self.new_range.get().replace(' ','').split(':')
-                if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
-                    new_start,new_end = a,b
-                    self.ranges.append((new_start,new_end))
-                print('Ranges:\n'+str(self.ranges))
-            for start,end in self.ranges:
-                self.text_ranges.insert(INSERT, '\n'+start+':'+end)
-            self.new_range.set('')
-        except AttributeError:
-                    print('Select a file first')
+        # try:
+        if not self.new_range.get() == '':
+            a,b=self.new_range.get().replace(' ','').split(':')
+            if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
+                new_start,new_end = a,b
+                self.ranges.append((new_start,new_end))
+            print('Ranges:\n'+str(self.ranges))
+        for start,end in self.ranges:
+            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+        self.new_range.set('')
+        # except AttributeError:
+                    # print('Select a file first')
 
     def remove_last_range(self):
         self.ranges.pop()
