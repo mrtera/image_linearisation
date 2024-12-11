@@ -42,7 +42,6 @@ def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,..
         for row in prange(data.shape[1]):
             # calculate the start and end index for the interpolated rows
             start = row * factor
-            end = start + factor
             
             # fill the start row with the original data
             zoomed_image[plane, start, :] = data[plane, row, :]
@@ -137,22 +136,46 @@ def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,..
 #     #     data = remapped_image
 
     # return data
+@jit(parallel=True)
+def remapping2D(data,shape_array,factor=16):
+    new_row_count = data.shape[0] * factor
+    
+    # create new array for the zoomed image
+    zoomed_image = np.zeros((new_row_count, data.shape[1]), dtype='uint16')
+    
+    # parallelize the loop over planes and rows
+    for row in prange(data.shape[0]):
+        # calculate the start and end index for the interpolated rows
+        start = row * factor
+        
+        # fill the start row with the original data
+        zoomed_image[start, :] = data[row, :]
+        
+        # interpolate between the original rows
+        if factor > 1 and row < data.shape[1] - 1:
+            next_row = data[row + 1, :]
+            for i in range(1, factor):
+                alpha = i / factor
+                zoomed_image[start + i, :] = (
+                    (1 - alpha) * data[row, :] + alpha * next_row
+                ).astype('uint16')
+        
+        # fill the end row with the original data
+        elif factor > 1 and row == data.shape[1] - 1:
+            for i in range(1, factor):
+                zoomed_image[start + i, :] = data[row, :]
 
-@jit(parallel=True)  
-def remapping1D(zoomed_image,shape_array):
-    sum_correction_factor = 0
     dim=shape_array.shape[0]
-    dim_upsampled = zoomed_image.shape[0]
-    remapped_image = np.zeros((dim,zoomed_image.shape[1]),dtype='uint16') 
-
+    dim_original = data.shape[0]
+    remapped_image = np.zeros((dim,data.shape[1]),dtype='uint16')
+    sum_correction_factor = 0
     for row in range(dim):
         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
-        upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-        bins= int(np.round(dim_upsampled*correction_factor))
-        for pixels in prange(zoomed_image.shape[1]): 
-            remapped_image[row,pixels] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins,pixels])
-        
+        upsampled_row = int(np.round(dim_original*sum_correction_factor))
+        bins= int(np.round(dim_original*correction_factor))
+        for pixel in prange(data.shape[1]):      
+            remapped_image[row,pixel] = np.mean(data[upsampled_row:upsampled_row+bins,pixel])
     return remapped_image
 
 ##### begin of UI class #####
@@ -175,22 +198,23 @@ class App:
         label = Label(settings_frame, text='Upsampling factor for 3D processing is fixed at 2')
         label.grid(row=0, column=0, columnspan=4)
 
+        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
         label = Label(settings_frame, text='Upsampleing factor X:')
         label.grid(row=2, column=1, columnspan=2)
-        self.upsampling_factor_X_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
-        self.upsampling_factor_X_spinbox.set(23)
+        self.upsampling_factor_X_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_X_spinbox.set(upsampling_values[2])
         self.upsampling_factor_X_spinbox.grid(row=2, column=3)
 
         label = Label(settings_frame, text='Upsampleing factor Y:')
         label.grid(row=3, column=1, columnspan=2)
-        self.upsampling_factor_Y_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
-        self.upsampling_factor_Y_spinbox.set(23)
+        self.upsampling_factor_Y_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_Y_spinbox.set(upsampling_values[2])
         self.upsampling_factor_Y_spinbox.grid(row=3, column=3)
         
         label = Label(settings_frame, text='Upsampleing factor Z:')
         label.grid(row=4, column=1, columnspan=2)
-        self.upsampling_factor_Z_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
-        self.upsampling_factor_Z_spinbox.set(23)
+        self.upsampling_factor_Z_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_Z_spinbox.set(upsampling_values[2])
         self.upsampling_factor_Z_spinbox.grid(row=4, column=3)
 
         self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
@@ -689,7 +713,7 @@ class App:
             shape_array = np.swapaxes(shape_array,1,2)
             data = np.swapaxes(data,1,2)
 
-            remapped_data = remapping3D(data,shape_array)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor_X)
             
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
@@ -697,7 +721,7 @@ class App:
 
         if y:
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
-            remapped_data = remapping3D(data,shape_array)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor_Y)
             data = remapped_data
 
         if z:
@@ -706,7 +730,7 @@ class App:
             remapped_data = np.swapaxes(remapped_data,0,1)
             data = np.swapaxes(data,0,1)
             
-            remapped_data = remapping3D(data,shape_array)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor_Z)
             
             data=remapped_data
             data = np.swapaxes(data,0,1)
@@ -718,20 +742,14 @@ class App:
             remapped_image = data
 
         if self.do_y_correction.get():
-            remapped_image = self.remapping2D(data,shape_array,self.upsampling_factor_Y)
+            remapped_image = remapping2D(data,shape_array,self.upsampling_factor_Y)
             data=remapped_image
             
         if self.do_x_correction.get():
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_image = np.swapaxes(data,0,1)
-            remapped_image = self.remapping2D(remapped_image,shape_array,self.upsampling_factor_X)
+            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor_X)
             remapped_image = np.swapaxes(remapped_image,0,1)
-        return remapped_image
-    
-### Remapping ###
-    def remapping2D(self,data,shape_array,upsampling_factor):
-        zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
-        remapped_image = remapping1D(zoomed_image,shape_array)
         return remapped_image
 
 ### Snow removal ###
