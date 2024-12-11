@@ -193,26 +193,26 @@ class App:
 
         self.verbose = BooleanVar(value=False)
         verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
-        verbose.grid(row=1, column=0)
+        verbose.grid(row=1, column=3)
 
-        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
-        label = Label(settings_frame, text='Upsampleing factor X:')
-        label.grid(row=2, column=1, columnspan=2)
-        self.upsampling_factor_X_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_X_spinbox.set(upsampling_values[4])
-        self.upsampling_factor_X_spinbox.grid(row=2, column=3)
-
-        label = Label(settings_frame, text='Upsampleing factor Y:')
-        label.grid(row=3, column=1, columnspan=2)
-        self.upsampling_factor_Y_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_Y_spinbox.set(upsampling_values[4])
-        self.upsampling_factor_Y_spinbox.grid(row=3, column=3)
-        
-        label = Label(settings_frame, text='Upsampleing factor Z:')
+        label = Label(settings_frame, text='micron per pixel in X:')
         label.grid(row=4, column=1, columnspan=2)
-        self.upsampling_factor_Z_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_Z_spinbox.set(upsampling_values[4])
-        self.upsampling_factor_Z_spinbox.grid(row=4, column=3)
+        self.micron_x = Spinbox(settings_frame, from_=0, to = 2, increment=0.1, width=4)
+        self.micron_x.set(1)
+        self.micron_x.grid(row=4, column=3)
+
+        label = Label(settings_frame, text='micron per pixel in Y:')
+        label.grid(row=3, column=1, columnspan=2)
+        self.micron_y = Spinbox(settings_frame,  from_=0, to=2, increment=0.1, width=4)
+        self.micron_y.set(1)
+        self.micron_y.grid(row=3, column=3)
+        
+        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
+        label = Label(settings_frame, text='Upsampleing factor:')
+        label.grid(row=2, column=1, columnspan=2)
+        self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_spinbox.set(upsampling_values[4])
+        self.upsampling_factor_spinbox.grid(row=2, column=3)
 
         self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
         self.snow_threshold_spinbox.set(0.9)
@@ -223,12 +223,14 @@ class App:
         remove_snow_checkbox.grid(row=5, column=1, columnspan=2)
 
         self.is2D_video = BooleanVar(value=False)
-        is2D_video_checkbox = Checkbutton(settings_frame, text='2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=5, column=0)
+        is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
+        is2D_video_checkbox.grid(row=6, column=0)
 
+        label = Label(settings_frame, text='correct in:')
+        label.grid(row=1, column=0)
         self.do_x_correction = BooleanVar(value=False)
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
-        do_x_correction_checkbox.grid(row=2, column=0)
+        do_x_correction_checkbox.grid(row=4, column=0)
 
         self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
@@ -236,11 +238,11 @@ class App:
 
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
-        do_z_correction_checkbox.grid(row=4, column=0)
+        do_z_correction_checkbox.grid(row=2, column=0)
 
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
+        rescale_image_checkbox.grid(row=6, column=3, columnspan=1)
 
         # options for IRD
         ird_frame = Frame(root)
@@ -339,9 +341,7 @@ class App:
         if len(self.filenames)>1:
             self.ranges = []
         
-        self.upsampling_factor_X = int(self.upsampling_factor_X_spinbox.get())
-        self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
-        self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
+        self.upsampling_factor = int(self.upsampling_factor_spinbox.get())
         self.is2D = self.is2D_video.get()
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
@@ -712,7 +712,7 @@ class App:
             shape_array = np.swapaxes(shape_array,1,2)
             data = np.swapaxes(data,1,2)
 
-            remapped_data = remapping3D(data,shape_array,self.upsampling_factor_X)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
@@ -720,7 +720,7 @@ class App:
 
         if y:
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
-            remapped_data = remapping3D(data,shape_array,self.upsampling_factor_Y)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             data = remapped_data
 
         if z:
@@ -729,7 +729,7 @@ class App:
             remapped_data = np.swapaxes(remapped_data,0,1)
             data = np.swapaxes(data,0,1)
             
-            remapped_data = remapping3D(data,shape_array,self.upsampling_factor_Z)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             
             data=remapped_data
             data = np.swapaxes(data,0,1)
@@ -741,13 +741,13 @@ class App:
             remapped_image = data
 
         if self.do_y_correction.get():
-            remapped_image = remapping2D(data,shape_array,self.upsampling_factor_Y)
+            remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
             data=remapped_image
             
         if self.do_x_correction.get():
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_image = np.swapaxes(data,0,1)
-            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor_X)
+            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor)
             remapped_image = np.swapaxes(remapped_image,0,1)
         return remapped_image
 
@@ -877,13 +877,13 @@ class App:
         file,
         ome=TRUE,
         compression=('zlib', 6),
-        resolution=(1/0.2, 1/0.3),
+        resolution=(1/self.micron_y.get(), 1/self.micron_x.get()),
         resolutionunit='MICROMETER',
         metadata={
-        'spacing': 0.5,
-        'unit': 'um',
-        'finterval': 1 / 30,
-        'fps': 30.0,
+        # 'spacing': 0.5,
+        # 'unit': 'um',
+        # 'finterval': 1 / 30,
+        # 'fps': 30.0,
         'axes': 'TZYX',
         })
         
@@ -898,13 +898,13 @@ class App:
                             data,
                             ome=TRUE,
                             compression=('zlib', 6),
-                            resolution=(1/0.2, 1/0.3),
+                            resolution=(1/self.micron_y.get(), 1/self.micron_x.get()),
                             resolutionunit='MICROMETER',
                             metadata={
-                            'spacing': 0.5,
-                            'unit': 'um',
-                            'finterval': 1 / 30,
-                            'fps': 30.0,
+                            # 'spacing': 0.5,
+                            # 'unit': 'um',
+                            # 'finterval': 1 / 30,
+                            # 'fps': 30.0,
                             'axes': 'TZYX',
                             })
             print('Data compressed and saved')
@@ -916,3 +916,5 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+
+# %%
