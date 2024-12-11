@@ -195,26 +195,23 @@ class App:
         verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
         verbose.grid(row=1, column=0)
 
-        label = Label(settings_frame, text='Upsampling factor for 3D processing is fixed at 2')
-        label.grid(row=0, column=0, columnspan=4)
-
         upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
         label = Label(settings_frame, text='Upsampleing factor X:')
         label.grid(row=2, column=1, columnspan=2)
         self.upsampling_factor_X_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_X_spinbox.set(upsampling_values[2])
+        self.upsampling_factor_X_spinbox.set(upsampling_values[4])
         self.upsampling_factor_X_spinbox.grid(row=2, column=3)
 
         label = Label(settings_frame, text='Upsampleing factor Y:')
         label.grid(row=3, column=1, columnspan=2)
         self.upsampling_factor_Y_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_Y_spinbox.set(upsampling_values[2])
+        self.upsampling_factor_Y_spinbox.set(upsampling_values[4])
         self.upsampling_factor_Y_spinbox.grid(row=3, column=3)
         
         label = Label(settings_frame, text='Upsampleing factor Z:')
         label.grid(row=4, column=1, columnspan=2)
         self.upsampling_factor_Z_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_Z_spinbox.set(upsampling_values[2])
+        self.upsampling_factor_Z_spinbox.set(upsampling_values[4])
         self.upsampling_factor_Z_spinbox.grid(row=4, column=3)
 
         self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
@@ -283,9 +280,10 @@ class App:
         remove_last_button = Button(ird_frame, text='remove last', command=self.remove_last_range)
         remove_last_button.grid(row=2, column=2)
 
-        self.text_ranges = Text(ird_frame, width=10, height=7)
+        self.text_ranges = Text(ird_frame, width=10, height=6, )
         self.text_ranges.grid(row=2, column=1, rowspan=3)
         self.text_ranges.insert(INSERT, 'Ranges:')
+        self.text_ranges.config(state=DISABLED)
 
 
         # data buttons
@@ -421,19 +419,20 @@ class App:
                 print('File format not supported')
         
     def add_range(self):
+        self.text_ranges.config(state=NORMAL)
         self.text_ranges.delete(2.0, END)
-        # try:
-        if not self.new_range.get() == '':
-            a,b=self.new_range.get().replace(' ','').split(':')
-            if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
-                new_start,new_end = a,b
-                self.ranges.append((new_start,new_end))
-            print('Ranges:\n'+str(self.ranges))
-        for start,end in self.ranges:
-            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
-        self.new_range.set('')
-        # except AttributeError:
-                    # print('Select a file first')
+        try:
+            if not self.new_range.get() == '':
+                a,b=self.new_range.get().replace(' ','').split(':')
+                if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
+                    new_start,new_end = a,b
+                    self.ranges.append((new_start,new_end))
+            for start,end in self.ranges:
+                self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+            self.new_range.set('')
+        except AttributeError:
+                    print('Select a file first')
+        self.text_ranges.config(state=DISABLED)
 
     def remove_last_range(self):
         self.ranges.pop()
@@ -867,10 +866,27 @@ class App:
 
     def save_image(self,file):
         print('compressing and saving data')
+
         if self.filename.endswith('.ird'):
-            tiff.imwrite(self.filename.replace('.ird','_processed.tif'),file,compression=('zlib', 6),metadata={'axes': self.axes})
-        else:
-            tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6),metadata={'axes': self.axes})
+            outfile = self.filename.replace('.ird','_processed.ird')
+        elif self.filename.endswith('.tif'):
+            outfile = self.filename.replace('.tif','_processed.tif')
+
+        tiff.imwrite(
+        outfile,
+        file,
+        ome=TRUE,
+        compression=('zlib', 6),
+        resolution=(1/0.2, 1/0.3),
+        resolutionunit='MICROMETER',
+        metadata={
+        'spacing': 0.5,
+        'unit': 'um',
+        'finterval': 1 / 30,
+        'fps': 30.0,
+        'axes': 'TZYX',
+        })
+        
         print('Data compressed and saved')
 
     def compress_image(self,path):
@@ -878,8 +894,20 @@ class App:
         try:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
-                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),data,compression=('zlib',6))
-                print('Data compressed and saved')
+                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
+                            data,
+                            ome=TRUE,
+                            compression=('zlib', 6),
+                            resolution=(1/0.2, 1/0.3),
+                            resolutionunit='MICROMETER',
+                            metadata={
+                            'spacing': 0.5,
+                            'unit': 'um',
+                            'finterval': 1 / 30,
+                            'fps': 30.0,
+                            'axes': 'TZYX',
+                            })
+            print('Data compressed and saved')
         except np.core._exceptions._ArrayMemoryError:
             print('Data too large for RAM, saved uncompressed data instead')
         return                        
@@ -888,4 +916,3 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
-# %%
