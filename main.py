@@ -236,6 +236,7 @@ class App:
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=3, column=0)
 
+
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=2, column=0)
@@ -877,7 +878,7 @@ class App:
         file,
         ome=TRUE,
         compression=('zlib', 6),
-        resolution=(1/self.micron_y.get(), 1/self.micron_x.get()),
+        resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
         resolutionunit='MICROMETER',
         metadata={
         # 'spacing': 0.5,
@@ -898,7 +899,7 @@ class App:
                             data,
                             ome=TRUE,
                             compression=('zlib', 6),
-                            resolution=(1/self.micron_y.get(), 1/self.micron_x.get()),
+                            resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
                             resolutionunit='MICROMETER',
                             metadata={
                             # 'spacing': 0.5,
