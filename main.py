@@ -10,10 +10,11 @@ import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
 from time import time 
+from scipy import ndimage
 try:
     import rawdata
     import napari_streamin.arrays
-except ImportError:
+except:
     print('napari_streamin not found, can only process tif files')
 
 
@@ -831,6 +832,24 @@ class App:
                     filtered_data[flakes] = 0
 
         return filtered_data
+
+
+    # Image processing
+    def generate_structure_mask(self,generated_image, closing_size, opening_size, closing_size_2):
+        if low_cutoff==0:
+            generated_image=np.where(generated_image>=high_cutoff,1,0)
+        else:
+
+            # generated_image=np.where(generated_image<(np.mean(generated_image)+1/2*np.std(generated_image)),0,1)
+            generated_image=np.where(generated_image<=low_cutoff,0,np.where(generated_image>=high_cutoff,0,1))
+        mask=generated_image
+        mask = ndimage.binary_dilation(generated_image, structure=np.ones((closing_size, closing_size, closing_size)))
+        mask = ndimage.binary_erosion(mask, structure=np.ones((opening_size, opening_size, opening_size)))
+        mask = ndimage.binary_dilation(mask, structure=np.ones((closing_size_2, closing_size_2, closing_size_2)))
+        mask = ndimage.binary_dilation(mask, structure=np.ones((3, 3, 3)))        
+        return mask.astype(int)
+
+
     
     def save_data(self,data,new_shape,in_memmap,out_memmap):
         print('Saving data')
