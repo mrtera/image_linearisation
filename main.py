@@ -242,9 +242,13 @@ class App:
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=2, column=0)
 
+        self.create_mask = BooleanVar(value=False)
+        create_mask_checkbox = Checkbutton(settings_frame, text='create mask',variable = self.create_mask)
+        create_mask_checkbox.grid(row=6, column=1, columnspan=2)
+
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=6, column=3, columnspan=1)
+        rescale_image_checkbox.grid(row=6, column=3)
 
         # options for IRD
         ird_frame = Frame(root)
@@ -573,8 +577,9 @@ class App:
                 data[index] = irdata[sections[index],:,:,:]
                 if self.melt:
                     snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+
                 if index % 50 == 0:
-                            print(str(index) + '/' + str(t_dim) + ' Volumes written')
+                    print(str(index) + '/' + str(t_dim) + ' Volumes written')
                             
 
         elif self.is_tiff:   
@@ -608,8 +613,8 @@ class App:
         new_shape,out_memmap = self.create_new_array(data)
 
         # process data
-        print('correcting for sin distorsion')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
+            print('correcting for sin distorsion')
             start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
@@ -624,6 +629,12 @@ class App:
             data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)    
 
+        if self.create_mask.get():
+            print('creating structure mask')
+            structure_mask = np.zeros_like(data)
+            low_cutoff = 0.368*np.mean(data) 
+            for timestep in range(data.shape[0]):
+                structure_mask[timestep] = self.generate_structure_mask(data,low_cutoff)
      
     def process_2Dt(self):
         in_memmap = False
@@ -704,11 +715,7 @@ class App:
 
       
     def process_3D(self,data,shape_array):
-        x = self.do_x_correction.get()
-        y = self.do_y_correction.get()
-        z = self.do_z_correction.get()
-
-        if x:
+        if self.do_x_correction.get():
             remapped_data = np.zeros((data.shape[0],data.shape[1],shape_array.shape[2]),dtype = 'uint16')
             remapped_data = np.swapaxes(remapped_data,1,2)
             shape_array = np.swapaxes(shape_array,1,2)
@@ -720,12 +727,12 @@ class App:
             data = remapped_data
             data = np.swapaxes(data,1,2)
 
-        if y:
+        if self.do_y_correction.get():
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
             remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             data = remapped_data
 
-        if z:
+        if self.do_z_correction.get():
             remapped_data = np.zeros((shape_array.shape[0],data.shape[1],data.shape[2]),dtype = 'uint16')
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_data = np.swapaxes(remapped_data,0,1)
@@ -734,8 +741,7 @@ class App:
             remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             
             data=remapped_data
-            data = np.swapaxes(data,0,1)
-    
+            data = np.swapaxes(data,0,1)    
         return data
 
     def process_2D(self,data,shape_array):
@@ -835,19 +841,15 @@ class App:
 
 
     # Image processing
-    def generate_structure_mask(self,generated_image, closing_size, opening_size, closing_size_2):
-        if low_cutoff==0:
-            generated_image=np.where(generated_image>=high_cutoff,1,0)
-        else:
-
-            # generated_image=np.where(generated_image<(np.mean(generated_image)+1/2*np.std(generated_image)),0,1)
-            generated_image=np.where(generated_image<=low_cutoff,0,np.where(generated_image>=high_cutoff,0,1))
-        mask=generated_image
-        mask = ndimage.binary_dilation(generated_image, structure=np.ones((closing_size, closing_size, closing_size)))
-        mask = ndimage.binary_erosion(mask, structure=np.ones((opening_size, opening_size, opening_size)))
-        mask = ndimage.binary_dilation(mask, structure=np.ones((closing_size_2, closing_size_2, closing_size_2)))
-        mask = ndimage.binary_dilation(mask, structure=np.ones((3, 3, 3)))        
-        return mask.astype(int)
+    def generate_structure_mask(self,generated_image, low_cutoff, closing_size=3, opening_size=4, closing_size_2=5):        
+        mask = np.zeros_like (generated_image)
+        generated_image=np.where(generated_image<=low_cutoff,0,1)#np.where(generated_image>=high_cutoff,0,1))
+        for planes in range(generated_image.shape[0]):
+            mask[planes] = ndimage.binary_dilation(generated_image, structure=np.ones((closing_size, closing_size)))
+            mask[planes] = ndimage.binary_erosion(mask, structure=np.ones((opening_size, opening_size)))
+            mask[planes] = ndimage.binary_dilation(mask, structure=np.ones((closing_size_2, closing_size_2)))
+            mask[planes] = ndimage.binary_dilation(mask, structure=np.ones((3, 3)))   
+        return mask.astype(np.uint8)
 
 
     
