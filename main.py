@@ -195,9 +195,6 @@ class App:
         verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
         verbose.grid(row=1, column=0)
 
-        label = Label(settings_frame, text='Upsampling factor for 3D processing is fixed at 2')
-        label.grid(row=0, column=0, columnspan=4)
-
         upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
         label = Label(settings_frame, text='Upsampleing factor X:')
         label.grid(row=2, column=1, columnspan=2)
