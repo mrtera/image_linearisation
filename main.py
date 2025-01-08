@@ -9,34 +9,44 @@ import numpy as np
 import scipy as sp
 from numba import jit, prange
 from timeit import default_timer as timer  
+from time import time 
 try:
     import rawdata
     import napari_streamin.arrays
 except ImportError:
     print('napari_streamin not found, can only process tif files')
 
-### Functions for paralell processing ###
-@jit(parallel=True)  
-def remapping3D(data,shape_array,factor=32): # upsampling factor must be in (2,4,8,16,32,...)
-    # if y:
 
-    # Berechne die neue Zeilenanzahl
+def timer_func(func): 
+    def wrap_func(*args, **kwargs): 
+        t1 = time() 
+        result = func(*args, **kwargs) 
+        t2 = time() 
+        print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
+        return result 
+    return wrap_func 
+
+### Functions for paralell processing ###
+#####CPU-processing#####
+# @timer_func
+@jit(parallel=True)  
+def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,...)
+    # calculate new row count
     new_row_count = data.shape[1] * factor
     
-    # Initialisiere das neue vergrößerte Bild
+    # create new array for the zoomed image
     zoomed_image = np.zeros((data.shape[0], new_row_count, data.shape[2]), dtype='uint16')
     
-    # Parallelisiere über Ebenen
+    # parallelize the loop over planes and rows
     for plane in prange(data.shape[0]):
         for row in prange(data.shape[1]):
-            # Berechne Start- und Endindizes für die interpolierten Zeilen
+            # calculate the start and end index for the interpolated rows
             start = row * factor
-            end = start + factor
             
-            # Fülle den ersten interpolierten Wert mit dem Originalwert
+            # fill the start row with the original data
             zoomed_image[plane, start, :] = data[plane, row, :]
             
-            # Interpoliere die dazwischenliegenden Werte (wenn `factor > 1`)
+            # interpolate between the original rows
             if factor > 1 and row < data.shape[1] - 1:
                 next_row = data[plane, row + 1, :]
                 for i in range(1, factor):
@@ -45,7 +55,7 @@ def remapping3D(data,shape_array,factor=32): # upsampling factor must be in (2,4
                         (1 - alpha) * data[plane, row, :] + alpha * next_row
                     ).astype('uint16')
             
-            # Für die letzte Originalzeile: Fülle alle interpolierten Werte mit dem letzten Wert
+            # fill the end row with the original data
             elif factor > 1 and row == data.shape[1] - 1:
                 for i in range(1, factor):
                     zoomed_image[plane, start + i, :] = data[plane, row, :]
@@ -64,83 +74,109 @@ def remapping3D(data,shape_array,factor=32): # upsampling factor must be in (2,4
             for pixel in prange(data.shape[2]):      
                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
     data = remapped_image
-
-    # if x:
-    #     data = np.swapaxes(data,1,2)
-    #     zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-    #     for plane in prange(zoomed_image.shape[0]):
-    #         for row in prange(zoomed_image.shape[1]):
-    #             row_data = int(row/2)
-    #             if row % 2 == 0:
-    #                 for pixel in prange(zoomed_image.shape[2]):
-    #                     zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-    #             else:
-    #                 for pixel in prange(zoomed_image.shape[2]):
-    #                     zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-    #     data=zoomed_image
-        
-    #     dim=shape_array.shape[2]
-    #     dim_original = data.shape[1]
-    #     remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-    #     for plane in prange(data.shape[0]):
-    #         sum_correction_factor = 0
-    #         for row in range(dim):
-    #             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-    #             sum_correction_factor += correction_factor
-    #             upsampled_row = int(np.round(dim_original*sum_correction_factor))
-    #             bins= int(np.round(dim_original*correction_factor))
-    #             for pixel in prange(data.shape[2]):      
-    #                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-    #     remapped_image = np.swapaxes(remapped_image,1,2)
-    #     data = np.swapaxes(data,1,2)
-    #     data = remapped_image     
-    
-    # if z:
-    #     data = np.swapaxes(data,0,1)
-    #     zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-    #     for plane in prange(zoomed_image.shape[0]):
-    #         for row in prange(zoomed_image.shape[1]):
-    #             row_data = int(row/2)
-    #             if row % 2 == 0:
-    #                 for pixel in prange(zoomed_image.shape[2]):
-    #                     zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-    #             else:
-    #                 for pixel in prange(zoomed_image.shape[2]):
-    #                     zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-    #     data=zoomed_image
-
-    #     dim=shape_array.shape[0]
-    #     dim_original = data.shape[1]
-    #     remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-    #     for plane in prange(data.shape[0]):
-    #         sum_correction_factor = 0
-    #         for row in range(dim):
-    #             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-    #             sum_correction_factor += correction_factor
-    #             upsampled_row = int(np.round(dim_original*sum_correction_factor))
-    #             bins= int(np.round(dim_original*correction_factor))
-    #             for pixel in prange(data.shape[2]):      
-    #                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-    #     remapped_image = np.swapaxes(remapped_image,0,1)
-    #     data = remapped_image
-
     return data
 
-@jit(parallel=True)  
-def remapping1D(zoomed_image,shape_array):
-    sum_correction_factor = 0
-    dim=shape_array.shape[0]
-    dim_upsampled = zoomed_image.shape[0]
-    remapped_image = np.zeros((dim,zoomed_image.shape[1]),dtype='uint16') 
 
+#     # if x:
+#     #     data = np.swapaxes(data,1,2)
+#     #     zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+#     #     for plane in prange(zoomed_image.shape[0]):
+#     #         for row in prange(zoomed_image.shape[1]):
+#     #             row_data = int(row/2)
+#     #             if row % 2 == 0:
+#     #                 for pixel in prange(zoomed_image.shape[2]):
+#     #                     zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+#     #             else:
+#     #                 for pixel in prange(zoomed_image.shape[2]):
+#     #                     zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+#     #     data=zoomed_image
+        
+#     #     dim=shape_array.shape[2]
+#     #     dim_original = data.shape[1]
+#     #     remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
+#     #     for plane in prange(data.shape[0]):
+#     #         sum_correction_factor = 0
+#     #         for row in range(dim):
+#     #             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+#     #             sum_correction_factor += correction_factor
+#     #             upsampled_row = int(np.round(dim_original*sum_correction_factor))
+#     #             bins= int(np.round(dim_original*correction_factor))
+#     #             for pixel in prange(data.shape[2]):      
+#     #                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
+#     #     remapped_image = np.swapaxes(remapped_image,1,2)
+#     #     data = np.swapaxes(data,1,2)
+#     #     data = remapped_image     
+    
+#     # if z:
+#     #     data = np.swapaxes(data,0,1)
+#     #     zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
+#     #     for plane in prange(zoomed_image.shape[0]):
+#     #         for row in prange(zoomed_image.shape[1]):
+#     #             row_data = int(row/2)
+#     #             if row % 2 == 0:
+#     #                 for pixel in prange(zoomed_image.shape[2]):
+#     #                     zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
+#     #             else:
+#     #                 for pixel in prange(zoomed_image.shape[2]):
+#     #                     zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
+#     #     data=zoomed_image
+
+#     #     dim=shape_array.shape[0]
+#     #     dim_original = data.shape[1]
+#     #     remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
+#     #     for plane in prange(data.shape[0]):
+#     #         sum_correction_factor = 0
+#     #         for row in range(dim):
+#     #             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+#     #             sum_correction_factor += correction_factor
+#     #             upsampled_row = int(np.round(dim_original*sum_correction_factor))
+#     #             bins= int(np.round(dim_original*correction_factor))
+#     #             for pixel in prange(data.shape[2]):      
+#     #                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
+#     #     remapped_image = np.swapaxes(remapped_image,0,1)
+#     #     data = remapped_image
+
+    # return data
+@jit(parallel=True)
+def remapping2D(data,shape_array,factor=16):
+    new_row_count = data.shape[0] * factor
+    
+    # create new array for the zoomed image
+    zoomed_image = np.zeros((new_row_count, data.shape[1]), dtype='uint16')
+    
+    # parallelize the loop over planes and rows
+    for row in prange(data.shape[0]):
+        # calculate the start and end index for the interpolated rows
+        start = row * factor
+        
+        # fill the start row with the original data
+        zoomed_image[start, :] = data[row, :]
+        
+        # interpolate between the original rows
+        if factor > 1 and row < data.shape[1] - 1:
+            next_row = data[row + 1, :]
+            for i in range(1, factor):
+                alpha = i / factor
+                zoomed_image[start + i, :] = (
+                    (1 - alpha) * data[row, :] + alpha * next_row
+                ).astype('uint16')
+        
+        # fill the end row with the original data
+        elif factor > 1 and row == data.shape[1] - 1:
+            for i in range(1, factor):
+                zoomed_image[start + i, :] = data[row, :]
+
+    dim=shape_array.shape[0]
+    dim_original = data.shape[0]
+    remapped_image = np.zeros((dim,data.shape[1]),dtype='uint16')
+    sum_correction_factor = 0
     for row in range(dim):
         correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
-        upsampled_row = int(np.round(dim_upsampled*sum_correction_factor))
-        bins= int(np.round(dim_upsampled*correction_factor))
-        for pixels in prange(zoomed_image.shape[1]): 
-            remapped_image[row,pixels] = np.mean(zoomed_image[upsampled_row:upsampled_row+bins,pixels])
-        
+        upsampled_row = int(np.round(dim_original*sum_correction_factor))
+        bins= int(np.round(dim_original*correction_factor))
+        for pixel in prange(data.shape[1]):      
+            remapped_image[row,pixel] = np.mean(data[upsampled_row:upsampled_row+bins,pixel])
     return remapped_image
 
 ##### begin of UI class #####
@@ -158,28 +194,26 @@ class App:
 
         self.verbose = BooleanVar(value=False)
         verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
-        verbose.grid(row=1, column=0)
+        verbose.grid(row=1, column=3)
 
-        label = Label(settings_frame, text='Upsampling factor for 3D processing is fixed at 2')
-        label.grid(row=0, column=0, columnspan=4)
-
-        label = Label(settings_frame, text='Upsampleing factor X:')
-        label.grid(row=2, column=1, columnspan=2)
-        self.upsampling_factor_X_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
-        self.upsampling_factor_X_spinbox.set(23)
-        self.upsampling_factor_X_spinbox.grid(row=2, column=3)
-
-        label = Label(settings_frame, text='Upsampleing factor Y:')
-        label.grid(row=3, column=1, columnspan=2)
-        self.upsampling_factor_Y_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
-        self.upsampling_factor_Y_spinbox.set(23)
-        self.upsampling_factor_Y_spinbox.grid(row=3, column=3)
-        
-        label = Label(settings_frame, text='Upsampleing factor Z:')
+        label = Label(settings_frame, text='micron per pixel in X:')
         label.grid(row=4, column=1, columnspan=2)
-        self.upsampling_factor_Z_spinbox = Spinbox(settings_frame, from_=1, to=100, width=4)
-        self.upsampling_factor_Z_spinbox.set(23)
-        self.upsampling_factor_Z_spinbox.grid(row=4, column=3)
+        self.micron_x = Spinbox(settings_frame, from_=0, to = 2, increment=0.1, width=4)
+        self.micron_x.set(1)
+        self.micron_x.grid(row=4, column=3)
+
+        label = Label(settings_frame, text='micron per pixel in Y:')
+        label.grid(row=3, column=1, columnspan=2)
+        self.micron_y = Spinbox(settings_frame,  from_=0, to=2, increment=0.1, width=4)
+        self.micron_y.set(1)
+        self.micron_y.grid(row=3, column=3)
+        
+        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
+        label = Label(settings_frame, text='Upsampleing factor:')
+        label.grid(row=2, column=1, columnspan=2)
+        self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_spinbox.set(upsampling_values[4])
+        self.upsampling_factor_spinbox.grid(row=2, column=3)
 
         self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
         self.snow_threshold_spinbox.set(0.9)
@@ -190,24 +224,27 @@ class App:
         remove_snow_checkbox.grid(row=5, column=1, columnspan=2)
 
         self.is2D_video = BooleanVar(value=False)
-        is2D_video_checkbox = Checkbutton(settings_frame, text='2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=5, column=0)
+        is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
+        is2D_video_checkbox.grid(row=6, column=0)
 
+        label = Label(settings_frame, text='correct in:')
+        label.grid(row=1, column=0)
         self.do_x_correction = BooleanVar(value=False)
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
-        do_x_correction_checkbox.grid(row=2, column=0)
+        do_x_correction_checkbox.grid(row=4, column=0)
 
         self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=3, column=0)
 
+
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
-        do_z_correction_checkbox.grid(row=4, column=0)
+        do_z_correction_checkbox.grid(row=2, column=0)
 
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=6, column=1, columnspan=2)
+        rescale_image_checkbox.grid(row=6, column=3, columnspan=1)
 
         # options for IRD
         ird_frame = Frame(root)
@@ -247,9 +284,10 @@ class App:
         remove_last_button = Button(ird_frame, text='remove last', command=self.remove_last_range)
         remove_last_button.grid(row=2, column=2)
 
-        self.text_ranges = Text(ird_frame, width=10, height=7)
+        self.text_ranges = Text(ird_frame, width=10, height=6, )
         self.text_ranges.grid(row=2, column=1, rowspan=3)
         self.text_ranges.insert(INSERT, 'Ranges:')
+        self.text_ranges.config(state=DISABLED)
 
 
         # data buttons
@@ -281,7 +319,8 @@ class App:
                     if dim in [2,3,4] and not self.is2D_video.get():
             
                         try:
-                            print('t dim = '+str(tif.series[0].shape[-4]))
+                            self.original_t_dim = tif.series[0].shape[-4]
+                            print('t dim = '+str(self.original_t_dim))
                         except IndexError:
                             pass
                         try:
@@ -304,9 +343,7 @@ class App:
         if len(self.filenames)>1:
             self.ranges = []
         
-        self.upsampling_factor_X = int(self.upsampling_factor_X_spinbox.get())
-        self.upsampling_factor_Y = int(self.upsampling_factor_Y_spinbox.get())
-        self.upsampling_factor_Z = int(self.upsampling_factor_Z_spinbox.get())
+        self.upsampling_factor = int(self.upsampling_factor_spinbox.get())
         self.is2D = self.is2D_video.get()
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
@@ -384,6 +421,7 @@ class App:
                 print('File format not supported')
         
     def add_range(self):
+        self.text_ranges.config(state=NORMAL)
         self.text_ranges.delete(2.0, END)
         try:
             if not self.new_range.get() == '':
@@ -391,12 +429,12 @@ class App:
                 if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
                     new_start,new_end = a,b
                     self.ranges.append((new_start,new_end))
-                print('Ranges:\n'+str(self.ranges))
             for start,end in self.ranges:
                 self.text_ranges.insert(INSERT, '\n'+start+':'+end)
             self.new_range.set('')
         except AttributeError:
                     print('Select a file first')
+        self.text_ranges.config(state=DISABLED)
 
     def remove_last_range(self):
         self.ranges.pop()
@@ -676,7 +714,7 @@ class App:
             shape_array = np.swapaxes(shape_array,1,2)
             data = np.swapaxes(data,1,2)
 
-            remapped_data = remapping3D(data,shape_array)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
@@ -684,7 +722,7 @@ class App:
 
         if y:
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
-            remapped_data = remapping3D(data,shape_array)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             data = remapped_data
 
         if z:
@@ -693,7 +731,7 @@ class App:
             remapped_data = np.swapaxes(remapped_data,0,1)
             data = np.swapaxes(data,0,1)
             
-            remapped_data = remapping3D(data,shape_array)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             
             data=remapped_data
             data = np.swapaxes(data,0,1)
@@ -705,20 +743,14 @@ class App:
             remapped_image = data
 
         if self.do_y_correction.get():
-            remapped_image = self.remapping2D(data,shape_array,self.upsampling_factor_Y)
+            remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
             data=remapped_image
             
         if self.do_x_correction.get():
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_image = np.swapaxes(data,0,1)
-            remapped_image = self.remapping2D(remapped_image,shape_array,self.upsampling_factor_X)
+            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor)
             remapped_image = np.swapaxes(remapped_image,0,1)
-        return remapped_image
-    
-### Remapping ###
-    def remapping2D(self,data,shape_array,upsampling_factor):
-        zoomed_image = sp.ndimage.zoom(data,(upsampling_factor, 1),order=1)
-        remapped_image = remapping1D(zoomed_image,shape_array)
         return remapped_image
 
 ### Snow removal ###
@@ -836,10 +868,27 @@ class App:
 
     def save_image(self,file):
         print('compressing and saving data')
+
         if self.filename.endswith('.ird'):
-            tiff.imwrite(self.filename.replace('.ird','_processed.tif'),file,compression=('zlib', 6),metadata={'axes': self.axes})
-        else:
-            tiff.imwrite(self.filename.replace('.tif','_processed.tif'),file,compression=('zlib', 6),metadata={'axes': self.axes})
+            outfile = self.filename.replace('.ird','_processed.ird')
+        elif self.filename.endswith('.tif'):
+            outfile = self.filename.replace('.tif','_processed.tif')
+
+        tiff.imwrite(
+        outfile,
+        file,
+        ome=TRUE,
+        compression=('zlib', 6),
+        resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
+        resolutionunit='MICROMETER',
+        metadata={
+        # 'spacing': 0.5,
+        # 'unit': 'um',
+        # 'finterval': 1 / 30,
+        # 'fps': 30.0,
+        'axes': 'TZYX',
+        })
+        
         print('Data compressed and saved')
 
     def compress_image(self,path):
@@ -847,8 +896,20 @@ class App:
         try:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
-                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),data,compression=('zlib',6))
-                print('Data compressed and saved')
+                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
+                            data,
+                            ome=TRUE,
+                            compression=('zlib', 6),
+                            resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
+                            resolutionunit='MICROMETER',
+                            metadata={
+                            # 'spacing': 0.5,
+                            # 'unit': 'um',
+                            # 'finterval': 1 / 30,
+                            # 'fps': 30.0,
+                            'axes': 'TZYX',
+                            })
+            print('Data compressed and saved')
         except np.core._exceptions._ArrayMemoryError:
             print('Data too large for RAM, saved uncompressed data instead')
         return                        
@@ -857,4 +918,5 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+
 # %%
