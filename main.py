@@ -17,8 +17,7 @@ except ImportError:
 
 ### Functions for paralell processing ###
 @jit(parallel=True)  
-def remapping3D(data,shape_array,factor=32): # factor must be in (2,4,8,16,32,...)
-    ### upsampling by factor of 2 ###
+def remapping3D(data,shape_array,factor=32): # upsampling factor must be in (2,4,8,16,32,...)
     # if y:
 
     # Berechne die neue Zeilenanzahl
@@ -50,6 +49,7 @@ def remapping3D(data,shape_array,factor=32): # factor must be in (2,4,8,16,32,..
             elif factor > 1 and row == data.shape[1] - 1:
                 for i in range(1, factor):
                     zoomed_image[plane, start + i, :] = data[plane, row, :]
+    data=zoomed_image
 
     dim=shape_array.shape[1]
     dim_original = data.shape[1]
