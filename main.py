@@ -219,12 +219,12 @@ class App:
         self.snow_threshold_spinbox.grid(row=5, column=3)
 
         self.remove_snow = BooleanVar(value=True)
-        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max', variable=self.remove_snow)
-        remove_snow_checkbox.grid(row=5, column=1, columnspan=2)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x=', variable=self.remove_snow)
+        remove_snow_checkbox.grid(row=5, column=0, columnspan=2)
 
         self.is2D_video = BooleanVar(value=False)
-        is2D_video_checkbox = Checkbutton(settings_frame, text='2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=5, column=0)
+        is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
+        is2D_video_checkbox.grid(row=6, column=0)
 
         self.do_x_correction = BooleanVar(value=False)
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
