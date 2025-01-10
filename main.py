@@ -30,7 +30,7 @@ def timer_func(func):
 #####CPU-processing#####
 # @timer_func
 @jit(parallel=True)  
-def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,...)
+def remapping3D(data,shape_array,factor): # factor must be in (2,4,8,16,32,...)
     # calculate new row count
     new_row_count = data.shape[1] * factor
     
@@ -138,7 +138,7 @@ def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,..
 
     # return data
 @jit(parallel=True)
-def remapping2D(data,shape_array,factor=4):
+def remapping2D(data,shape_array,factor):
     new_row_count = data.shape[0] * factor
     
     # create new array for the zoomed image
