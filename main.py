@@ -220,8 +220,8 @@ class App:
         self.snow_threshold_spinbox.grid(row=5, column=3)
 
         self.remove_snow = BooleanVar(value=True)
-        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max', variable=self.remove_snow)
-        remove_snow_checkbox.grid(row=5, column=1, columnspan=2)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x=', variable=self.remove_snow)
+        remove_snow_checkbox.grid(row=5, column=0, columnspan=2)
 
         self.is2D_video = BooleanVar(value=False)
         is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
@@ -304,12 +304,13 @@ class App:
         self.filenames = list(filenames)
                    
         for filename in self.filenames:
-            print(len(self.filenames))
             if filename.endswith('.ird'):
                 self.ird_file = rawdata.InputFile()
                 self.ird_file.open(filename)
                 provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(provider)
+                if images.shape[-3]==1:
+                    self.is2D_video.set(True)
                 self.original_t_dim = images.shape[-4]
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 
@@ -334,7 +335,8 @@ class App:
                         except IndexError:
                             pass
                     elif dim == 3 and self.is2D_video.get():
-                        print('t dim = '+str(tif.series[0].shape[-3]))
+                        self.original_t_dim = tif.series[0].shape[-3]
+                        print('t dim = '+str(self.original_t_dim))
                         print('Y dim = '+str(tif.series[0].shape[-2]))
                         print('X dim = '+str(tif.series[0].shape[-1]))
                     else:            
@@ -365,9 +367,9 @@ class App:
                 images = napari_streamin.arrays.VolumeArray(self.provider)
                 self.original_t_dim = images.shape[-4]
                 
-                if images.shape[-3]==1:
+                if self.is2D:
                     self.is_2D_video = True 
-                    self.process_2Dt_ird()
+                    self.process_2Dt()
                 else:
                     self.is_3D_video = True
                     self.process_4D()
@@ -625,7 +627,7 @@ class App:
             data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)    
 
-     
+
     def process_2Dt(self):
         in_memmap = False
         out_memmap = False
@@ -650,47 +652,10 @@ class App:
         # melt snow 2D if selected
         if self.melt:
             snow_value = np.amax(data)
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
-
-        # create new array with corrected aspect ratio
-        new_shape,out_memmap = self.create_new_array(data)
-                
-        for timestep in np.arange(t_dim): 
-            new_shape[timestep] = self.process_2D(data[timestep],new_shape[0])
-            if timestep % 50 == 0:
-                print('Frame '+str(timestep)+' corrected')
-
-        self.save_data(data,new_shape,in_memmap,out_memmap)          
-        return
-            
-
-    def process_2Dt_ird(self):
-        in_memmap = False
-        out_memmap = False
-        try:
-            with tiff.TiffFile(self.filename) as tif:
-                data = tif.asarray()
-                t_dim = tif.series[0].shape[-3]
-                print('Data loaded into RAM')
-        except np.core._exceptions._ArrayMemoryError:
-            in_memmap = True
-            data = self.memap(self.tif_shape)
-            # write data to memory-mapped array
-            print('MemoryError: File too large for RAM, writing original data to memmap')
-            with tiff.TiffFile(self.filename) as tif:
-                t_dim = tif.series[0].shape[-3]
-                for timepoints in range(t_dim):
-                    if timepoints % 100 == 0:
-                        print(str(timepoints) + '/' + str(t_dim) + ' Frames written')
-                    data[timepoints] = tif.pages[timepoints].asarray()
-            print('Data written to memory-mapped array')
-        
-        # melt snow 2D if selected
-        if self.melt:
-            snow_value = np.amax(data)
-            for timestep in np.arange(t_dim): 
-                data[timestep] = self.melt_snow(data[timestep],snow_value)
+            print('Snow removed')
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
@@ -703,7 +668,7 @@ class App:
         self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
 
-      
+
     def process_3D(self,data,shape_array):
         x = self.do_x_correction.get()
         y = self.do_y_correction.get()
@@ -870,10 +835,7 @@ class App:
     def save_image(self,file):
         print('compressing and saving data')
 
-        if self.filename.endswith('.ird'):
-            outfile = self.filename.replace('.ird','_processed.ird')
-        elif self.filename.endswith('.tif'):
-            outfile = self.filename.replace('.tif','_processed.tif')
+        outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
 
         tiff.imwrite(
         outfile,
@@ -919,5 +881,3 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
-
-# %%
