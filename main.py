@@ -310,6 +310,7 @@ class App:
                 self.ird_file.open(filename)
                 provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(provider)
+                self.original_t_dim = images.shape[-4]
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 
             elif filename.endswith('.tif') or filename.endswith('.tiff'):
