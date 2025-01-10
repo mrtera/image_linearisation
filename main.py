@@ -627,7 +627,7 @@ class App:
             data.flush()
         self.save_data(data,new_shape,in_memmap,out_memmap)    
 
-     
+
     def process_2Dt(self):
         in_memmap = False
         out_memmap = False
@@ -652,8 +652,10 @@ class App:
         # melt snow 2D if selected
         if self.melt:
             snow_value = np.amax(data)
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
+            print('Snow removed')
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
