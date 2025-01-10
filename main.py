@@ -40,7 +40,7 @@ def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,..
     # parallelize the loop over planes and rows
     for plane in prange(data.shape[0]):
         for row in prange(data.shape[1]):
-            # calculate the start and end index for the interpolated rows
+            # calculate the start index for the interpolated rows
             start = row * factor
             
             # fill the start row with the original data
@@ -138,22 +138,22 @@ def remapping3D(data,shape_array,factor=16): # factor must be in (2,4,8,16,32,..
 
     # return data
 @jit(parallel=True)
-def remapping2D(data,shape_array,factor=16):
+def remapping2D(data,shape_array,factor=4):
     new_row_count = data.shape[0] * factor
     
     # create new array for the zoomed image
     zoomed_image = np.zeros((new_row_count, data.shape[1]), dtype='uint16')
     
-    # parallelize the loop over planes and rows
+    # parallelize the loop over rows
     for row in prange(data.shape[0]):
-        # calculate the start and end index for the interpolated rows
+        # calculate the start index for the interpolated rows
         start = row * factor
         
         # fill the start row with the original data
         zoomed_image[start, :] = data[row, :]
         
-        # interpolate between the original rows
-        if factor > 1 and row < data.shape[1] - 1:
+        # interpolate between the original rows alpha is the weight depending on proximity to the original row
+        if factor > 1 and row < data.shape[0] - 1:
             next_row = data[row + 1, :]
             for i in range(1, factor):
                 alpha = i / factor
@@ -162,10 +162,11 @@ def remapping2D(data,shape_array,factor=16):
                 ).astype('uint16')
         
         # fill the end row with the original data
-        elif factor > 1 and row == data.shape[1] - 1:
+        elif factor > 1 and row == data.shape[0] - 1:
             for i in range(1, factor):
                 zoomed_image[start + i, :] = data[row, :]
-
+    
+    data = zoomed_image
     dim=shape_array.shape[0]
     dim_original = data.shape[0]
     remapped_image = np.zeros((dim,data.shape[1]),dtype='uint16')
@@ -836,6 +837,10 @@ class App:
         print('compressing and saving data')
 
         outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
+        if self.is2D:
+            axes = 'TYX'
+        else:
+            axes = 'TZYX'
 
         tiff.imwrite(
         outfile,
@@ -849,7 +854,7 @@ class App:
         # 'unit': 'um',
         # 'finterval': 1 / 30,
         # 'fps': 30.0,
-        'axes': 'TZYX',
+        'axes': axes,
         })
         
         print('Data compressed and saved')
@@ -859,6 +864,10 @@ class App:
         try:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
+                if self.is2D:
+                    axes = 'TYX'
+                else:
+                    axes = 'TZYX'
                 tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
                             data,
                             ome=TRUE,
@@ -870,7 +879,7 @@ class App:
                             # 'unit': 'um',
                             # 'finterval': 1 / 30,
                             # 'fps': 30.0,
-                            'axes': 'TZYX',
+                            'axes': axes,
                             })
             print('Data compressed and saved')
         except np.core._exceptions._ArrayMemoryError:
