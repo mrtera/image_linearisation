@@ -310,6 +310,7 @@ class App:
                 self.ird_file.open(filename)
                 provider = rawdata.ImageDataProvider(self.ird_file,0)
                 images = napari_streamin.arrays.VolumeArray(provider)
+                self.original_t_dim = images.shape[-4]
                 print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
                 
             elif filename.endswith('.tif') or filename.endswith('.tiff'):
@@ -423,17 +424,17 @@ class App:
     def add_range(self):
         self.text_ranges.config(state=NORMAL)
         self.text_ranges.delete(2.0, END)
-        try:
-            if not self.new_range.get() == '':
-                a,b=self.new_range.get().replace(' ','').split(':')
-                if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
-                    new_start,new_end = a,b
-                    self.ranges.append((new_start,new_end))
-            for start,end in self.ranges:
-                self.text_ranges.insert(INSERT, '\n'+start+':'+end)
-            self.new_range.set('')
-        except AttributeError:
-                    print('Select a file first')
+        # try:
+        if not self.new_range.get() == '':
+            a,b=self.new_range.get().replace(' ','').split(':')
+            if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
+                new_start,new_end = a,b
+                self.ranges.append((new_start,new_end))
+        for start,end in self.ranges:
+            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+        self.new_range.set('')
+        # except AttributeError:
+        #             print('Select a file first')
         self.text_ranges.config(state=DISABLED)
 
     def remove_last_range(self):
