@@ -253,7 +253,7 @@ class App:
         ird_frame['relief'] = 'groove'
         ird_frame.grid(row=0, column =2)
 
-        ird_label = Label(ird_frame, text='add time ranges for 4D files:')
+        ird_label = Label(ird_frame, text='option to select time ranges:')
         ird_label.grid(row=0, column=0, columnspan=3)
 
         #add standard text to entry
@@ -445,17 +445,22 @@ class App:
         self.add_range()
 
 
-    def calc_dim(self,tif_shape):
+    def calc_t_dim(self,tif_shape):
         new_t_dim = 0
+
         for start,end in self.ranges:
             new_t_dim = new_t_dim+int(end)-int(start)
 
         if new_t_dim > 0:
             t_dim = new_t_dim
-            tif_shape = (t_dim,tif_shape[-3],tif_shape[-2],tif_shape[-1])
+            if len(tif_shape) == 3:
+                tif_shape = (t_dim,tif_shape[-2],tif_shape[-1])
+                z_dim = 1
+            else:
+                tif_shape = (t_dim,tif_shape[-3],tif_shape[-2],tif_shape[-1])
+                z_dim = tif_shape[-3]
         else:
-            t_dim = tif_shape[-4]
-        z_dim = tif_shape[-3]
+            t_dim = tif_shape[0]
         return t_dim, z_dim, tif_shape
     
         
@@ -541,11 +546,45 @@ class App:
         return new_array, memmap
 
 
-    def process_4D(self):
-        in_memmap = False
-        out_memmap = False
-        snow_value = 0    
+    def load_ird(self, sections, snow_value=0, in_memmap=False, is2Dt=False):
+        import napari_streamin.arrays
+        match is2Dt:
+            case False:
+                irdata = napari_streamin.arrays.VolumeArray(self.provider)
+                self.axes = 'QQYX'
+            case True:
+                irdata = napari_streamin.arrays.ImageArray(self.provider)
+                self.axes = 'QYX'
 
+        tif_shape = irdata.shape
+        t_dim, z_dim, tif_shape = self.calc_t_dim(tif_shape)
+
+        try:
+            data = np.zeros(tif_shape,dtype=np.uint16)
+        except np.core._exceptions._ArrayMemoryError:
+            in_memmap = True
+            print('MemoryError: File too large for RAM, writing original data to memmap')
+            data = self.memap(tif_shape)
+            print('Writing data to memory-mapped array')
+
+        match is2Dt:
+            case False:        
+                for index in range(t_dim):
+                    data[index] = irdata[sections[index],:,:,:]
+                    if self.melt:
+                        snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
+
+            case True:
+                for index in range(t_dim):
+                    data[index] = irdata[sections[index],:,:]
+                    if self.melt:
+                        snow_value = np.maximum(snow_value,np.amax(data[index,:,:]))
+                data = np.squeeze(data)
+
+        return data, t_dim, snow_value, in_memmap
+
+
+    def create_section_indices(self):
         if self.ranges == []:
             self.ranges = [(0,self.original_t_dim)]
 
@@ -555,34 +594,23 @@ class App:
             try:
                 sections = np.append(sections,np.arange(start,end))
             except UnboundLocalError:
-                sections = np.arange(start,end)               
+                sections = np.arange(start,end)
+        return sections  
 
+
+    def process_4D(self):
+        in_memmap = False
+        out_memmap = False
+        snow_value = 0    
+
+        sections = self.create_section_indices()               
 
         if self.filename.endswith('.ird'):
-            import napari_streamin.arrays 
-            irdata = napari_streamin.arrays.VolumeArray(self.provider)
-            tif_shape = irdata.shape
-            t_dim, z_dim, tif_shape = self.calc_dim(tif_shape)
-            self.axes = 'QQYX'
-
-            try:
-                data = np.zeros(tif_shape,dtype=np.uint16)
-            except np.core._exceptions._ArrayMemoryError:
-                in_memmap = True
-                print('MemoryError: File too large for RAM, writing original data to memmap')
-                data = self.memap(tif_shape)
-                print('Writing data to memory-mapped array')
-
-            for index in range(t_dim):
-                data[index] = irdata[sections[index],:,:,:]
-                if self.melt:
-                    snow_value = np.maximum(snow_value,np.amax(data[index,:,:,:]))
-                if index % 50 == 0:
-                            print(str(index) + '/' + str(t_dim) + ' Volumes written')
+            data, t_dim, snow_value, in_memmap = self.load_ird(sections)
                             
 
         elif self.is_tiff:   
-            t_dim, z_dim, tif_shape = self.calc_dim(self.tif_shape)  
+            t_dim, z_dim, tif_shape = self.calc_t_dim(self.tif_shape)  
             # Load data either in RAM or as memmap
             try:
                 data = np.zeros(tif_shape,dtype=np.uint16)
@@ -599,7 +627,7 @@ class App:
                             snow_value = np.maximum(snow_value,np.amax(data[timepoints,planes]))
                     if timepoints % 50 == 0:
                         print('loading '+ str(timepoints) + '/' + str(t_dim) + ' volumes')
-            print('Data loaded')
+        print('Data loaded')
 
         # melt snow if selected
         if self.melt:
@@ -626,33 +654,41 @@ class App:
                 self.ird_file.close()
         if in_memmap:
             data.flush()
-        self.save_data(data,new_shape,in_memmap,out_memmap)    
+        self.save_data(data,new_shape,in_memmap,out_memmap) 
 
 
     def process_2Dt(self):
         in_memmap = False
         out_memmap = False
-        try:
+        snow_value = 0
+
+        sections = self.create_section_indices()
+
+        if self.filename.endswith('.ird'):
+            data, t_dim, snow_value, in_memmap = self.load_ird(sections,is2Dt=True)
+            
+        elif self.is_tiff:
+            t_dim, z_dim, tif_shape = self.calc_t_dim(self.tif_shape)  
+            print(tif_shape)
+            # Load data either in RAM or as memmap
+            try:
+                data = np.zeros(tif_shape,dtype=np.uint16)
+            except np.core._exceptions._ArrayMemoryError:
+                in_memmap = True
+                print('MemoryError: File too large for RAM, loading data to memory-mapped array')
+                data = self.memap(tif_shape)
+
             with tiff.TiffFile(self.filename) as tif:
-                data = tif.asarray()
-                t_dim = tif.series[0].shape[-3]
-                print('Data loaded into RAM')
-        except np.core._exceptions._ArrayMemoryError:
-            in_memmap = True
-            data = self.memap(self.tif_shape)
-            # write data to memory-mapped array
-            print('MemoryError: File too large for RAM, writing original data to memmap')
-            with tiff.TiffFile(self.filename) as tif:
-                t_dim = tif.series[0].shape[-3]
                 for timepoints in range(t_dim):
-                    if timepoints % 100 == 0:
-                        print(str(timepoints) + '/' + str(t_dim) + ' Frames written')
-                    data[timepoints] = tif.pages[timepoints].asarray()
-            print('Data written to memory-mapped array')
-        
+                    data[timepoints] = tif.pages[sections[timepoints]].asarray()
+                    if self.melt:
+                        snow_value = np.maximum(snow_value,np.amax(data[timepoints]))
+                    if timepoints % 50 == 0:
+                        print('loading '+ str(timepoints) + '/' + str(t_dim) + ' volumes')
+        print('Data loaded')
+            
         # melt snow 2D if selected
         if self.melt:
-            snow_value = np.amax(data)
             print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
@@ -890,3 +926,5 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+
+# %%
