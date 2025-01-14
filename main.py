@@ -183,78 +183,85 @@ def remapping2D(data,shape_array,factor):
 ##### begin of UI class #####
 class App:
     def __init__(self, root):
-
         # UI elements
         self.root = root
         self.root.title('Image Processing')
-
+        
+        current_row = 0
         settings_frame = Frame(root)
         settings_frame['borderwidth'] = 2
         settings_frame['relief'] = 'groove'
-        settings_frame.grid(row=0, column =0,columnspan=2)
+        settings_frame.grid(row=current_row, column =0,columnspan=2)
 
         self.verbose = BooleanVar(value=False)
         verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
-        verbose.grid(row=1, column=3)
-
-        label = Label(settings_frame, text='micron per pixel in X:')
-        label.grid(row=4, column=1, columnspan=2)
-        self.micron_x = Spinbox(settings_frame, from_=0, to = 2, increment=0.1, width=4)
-        self.micron_x.set(1)
-        self.micron_x.grid(row=4, column=3)
-
-        label = Label(settings_frame, text='micron per pixel in Y:')
-        label.grid(row=3, column=1, columnspan=2)
-        self.micron_y = Spinbox(settings_frame,  from_=0, to=2, increment=0.1, width=4)
-        self.micron_y.set(1)
-        self.micron_y.grid(row=3, column=3)
-        
-        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
-        label = Label(settings_frame, text='Upsampleing factor:')
-        label.grid(row=2, column=1, columnspan=2)
-        self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_spinbox.set(upsampling_values[2])
-        self.upsampling_factor_spinbox.grid(row=2, column=3)
-
-        self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
-        self.snow_threshold_spinbox.set(0.9)
-        self.snow_threshold_spinbox.grid(row=5, column=3)
-
-        self.remove_snow = BooleanVar(value=True)
-        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x=', variable=self.remove_snow)
-        remove_snow_checkbox.grid(row=5, column=0, columnspan=2)
-
-        self.is2D_video = BooleanVar(value=False)
-        is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=6, column=0)
+        verbose.grid(row=current_row, column=3)
 
         label = Label(settings_frame, text='correct in:')
-        label.grid(row=1, column=0)
+        label.grid(row=current_row, column=0)
+        current_row += 1
+
+        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
+        label = Label(settings_frame, text='Upsampleing factor:')
+        label.grid(row=current_row, column=1, columnspan=2)
+        self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_spinbox.set(upsampling_values[2])
+        self.upsampling_factor_spinbox.grid(row=current_row, column=3)
+
         self.do_x_correction = BooleanVar(value=False)
         do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
-        do_x_correction_checkbox.grid(row=4, column=0)
+        do_x_correction_checkbox.grid(row=current_row, column=0)
+        current_row += 1
 
         self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
-        do_y_correction_checkbox.grid(row=3, column=0)
+        do_y_correction_checkbox.grid(row=current_row, column=0)
 
+        label = Label(settings_frame, text='micron per pixel in X:')
+        label.grid(row=current_row, column=1, columnspan=2)
+        self.micron_x = Spinbox(settings_frame, from_=0, to = 2, increment=0.1, width=4)
+        self.micron_x.set(1)
+        self.micron_x.grid(row=current_row, column=3)
+        current_row += 1
+
+        label = Label(settings_frame, text='micron per pixel in Y:')
+        label.grid(row=current_row, column=1, columnspan=2)
+        self.micron_y = Spinbox(settings_frame,  from_=0, to=2, increment=0.1, width=4)
+        self.micron_y.set(1)
+        self.micron_y.grid(row=current_row, column=3)
 
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
-        do_z_correction_checkbox.grid(row=2, column=0)
+        do_z_correction_checkbox.grid(row=current_row, column=0)
+        current_row += 1        
+
+        self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
+        self.snow_threshold_spinbox.set(0.9)
+        self.snow_threshold_spinbox.grid(row=current_row, column=3)
+
+        self.remove_snow = BooleanVar(value=True)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x=', variable=self.remove_snow)
+        remove_snow_checkbox.grid(row=current_row, column=0, columnspan=2)
+        current_row += 1
+
+        self.is2D_video = BooleanVar(value=False)
+        is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
+        is2D_video_checkbox.grid(row=current_row, column=0)
 
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=6, column=3, columnspan=1)
+        rescale_image_checkbox.grid(row=current_row, column=3, columnspan=1)
 
-        # options for IRD
-        ird_frame = Frame(root)
-        ird_frame['borderwidth'] = 2
-        ird_frame['relief'] = 'groove'
-        ird_frame.grid(row=0, column =2)
+        # options for time ranges
+        current_row = 0
+        ranges_frame = Frame(root)
+        ranges_frame['borderwidth'] = 2
+        ranges_frame['relief'] = 'groove'
+        ranges_frame.grid(row=current_row, column =2)
 
-        ird_label = Label(ird_frame, text='option to select time ranges:')
-        ird_label.grid(row=0, column=0, columnspan=3)
+        ird_label = Label(ranges_frame, text='option to select time ranges:')
+        ird_label.grid(row=current_row, column=0, columnspan=3)
+        current_row += 1
 
         #add standard text to entry
         def on_entry_click(event):
@@ -272,21 +279,22 @@ class App:
         
         
         self.new_range = StringVar()
-        range_entry = Entry(ird_frame, textvariable=self.new_range, width=13)
-        range_entry.grid(row=1, column=1)
+        range_entry = Entry(ranges_frame, textvariable=self.new_range, width=13)
+        range_entry.grid(row=current_row, column=1)
         range_entry.insert(0, 'start:end')
         range_entry.bind('<FocusIn>', on_entry_click)
         range_entry.bind('<FocusOut>', on_focusout)
         range_entry.bind('<Return>', on_return)
 
-        add_button = Button(ird_frame, text='add range', command=self.add_range)
-        add_button.grid(row=1, column=2)
+        add_button = Button(ranges_frame, text='add range', command=self.add_range)
+        add_button.grid(row=current_row, column=2)
+        current_row += 1
 
-        remove_last_button = Button(ird_frame, text='remove last', command=self.remove_last_range)
-        remove_last_button.grid(row=2, column=2)
+        remove_last_button = Button(ranges_frame, text='remove last', command=self.remove_last_range)
+        remove_last_button.grid(row=current_row, column=2)
 
-        self.text_ranges = Text(ird_frame, width=10, height=6, )
-        self.text_ranges.grid(row=2, column=1, rowspan=3)
+        self.text_ranges = Text(ranges_frame, width=10, height=5)
+        self.text_ranges.grid(row=current_row, column=1, rowspan=3)
         self.text_ranges.insert(INSERT, 'Ranges:')
         self.text_ranges.config(state=DISABLED)
 
