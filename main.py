@@ -183,7 +183,7 @@ def remapping2D(data,shape_array,factor):
 ##### begin of UI class #####
 class App:
     def __init__(self, root):
-        # UI elements
+        # general settings
         self.root = root
         self.root.title('Image Processing')
         
@@ -298,6 +298,24 @@ class App:
         self.text_ranges.insert(INSERT, 'Ranges:')
         self.text_ranges.config(state=DISABLED)
 
+        # ird settings
+        current_row = 0
+        ird_frame = Frame(root)
+        ird_frame['borderwidth'] = 2
+        ird_frame['relief'] = 'groove'
+        ird_frame.grid(row=current_row, column =3)
+        
+        ird_label = Label(ird_frame, text='IRD settings:')
+        ird_label.grid(row=current_row, column=0, columnspan=3)
+        current_row += 1
+
+        self.ird_2d_averaging = IntVar(value=1)
+        ird_2d_averaging_label = Label(ird_frame, text='2D averaging:')
+        ird_2d_averaging_label.grid(row=current_row, column=0)
+        ird_2d_averaging_spinbox = Spinbox(ird_frame, from_=1, to=1000, width=6, textvariable=self.ird_2d_averaging)
+        ird_2d_averaging_spinbox.set(self.ird_2d_averaging.get())
+        ird_2d_averaging_spinbox.grid(row=current_row, column=1)
+        current_row += 1
 
         # data buttons
         open_button = Button(root, text='Open Image', command=self.open_image)
@@ -562,6 +580,7 @@ class App:
                 self.axes = 'QQYX'
             case True:
                 irdata = napari_streamin.arrays.ImageArray(self.provider)
+                irdata.image_averaging = self.ird_2d_averaging.get()
                 self.axes = 'QYX'
 
         tif_shape = irdata.shape
