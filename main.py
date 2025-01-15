@@ -14,7 +14,7 @@ try:
     import rawdata
     import napari_streamin.arrays
 except ImportError:
-    print('napari_streamin not found, can only process tif files')
+    print('napari_streamin import error, can only process tif files')
 
 
 def timer_func(func): 
@@ -244,9 +244,9 @@ class App:
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=2)
         current_row += 1
 
-        self.is2D_video = BooleanVar(value=False)
-        is2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is2D_video)
-        is2D_video_checkbox.grid(row=current_row, column=0)
+        self.is_2D_video_var = BooleanVar(value=False)
+        is_2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is_2D_video_var)
+        is_2D_video_checkbox.grid(row=current_row, column=0)
 
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
@@ -324,131 +324,111 @@ class App:
         process = Button(root, text='Process Image', command=self.process)
         process.grid(row=1, column=1)
 
+                
+    def decide_data_type(self):
+        self.is_tiff = False
+        self.is_ird = False
+        self.is_single_frame = False
+        self.is_single_volume = False
+        self.is_2D_video = False
+        self.is_3D_video = False
+        try:
+            del self.original_t_dim
+        except AttributeError:
+            print('No original t_dim found')
+
+        if self.filename.endswith('.ird'):
+            self.is_ird = True
+            import rawdata
+            import napari_streamin.arrays   
+            self.ird_file = rawdata.InputFile()
+            self.ird_file.open(self.filename)
+            self.provider = rawdata.ImageDataProvider(self.ird_file,0)
+            images = napari_streamin.arrays.VolumeArray(self.provider)
+
+            if images.shape[1]==1:
+                images = napari_streamin.arrays.ImageArray(self.provider)
+                images.image_averaging = self.ird_2d_averaging.get()
+                self.is_2D_video_var.set(True)
+                self.is_2D_video = True
+            else:
+                self.is_3D_video = True
+                self.is_2D_video_var.set(False)
+            self.original_t_dim = images.shape[0]
+            shape = images.shape
+        
+        elif self.filename.endswith('.tif') or self.filename.endswith('.tiff'):
+            self.is_tiff = True
+            with tiff.TiffFile(self.filename) as tif:
+                self.dim = tif.series[0].ndim
+                self.tif_shape = tif.series[0].shape
+                self.dtype = tif.pages[0].dtype
+                self.axes = tif.series[0].axes
+                try:
+                    self.original_t_dim = tif.series[0].shape[-4]
+                except IndexError:
+                    pass
+            if self.dim in [2,3] and not self.is_2D_video_var.get():
+                if self.dim == 2:
+                    self.is_single_frame = True
+                elif self.dim == 3:
+                    self.is_single_volume = True
+            elif self.dim == 4:
+                self.is_3D_video = True
+            elif self.dim == 3 and self.is_2D_video_var.get():
+                self.is_2D_video = True
+                self.original_t_dim = self.tif_shape[0]
+            else:
+                print('Image dimension not supported!')
+            shape = self.tif_shape
+        return shape
 
     def open_image(self):
-        self.ranges = []
         filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif"),("SLIDE data","*.tiff")])
         self.filenames = list(filenames)
                    
-        for filename in self.filenames:
-            if filename.endswith('.ird'):
-                self.ird_file = rawdata.InputFile()
-                self.ird_file.open(filename)
-                provider = rawdata.ImageDataProvider(self.ird_file,0)
-                images = napari_streamin.arrays.VolumeArray(provider)
-                if images.shape[-3]==1:
-                    self.is2D_video.set(True)
-                self.original_t_dim = images.shape[-4]
-                print('Found Stack dimension: '+str(images.shape)+' in "' + filename+'"')
-                
-            elif filename.endswith('.tif') or filename.endswith('.tiff'):
-                with tiff.TiffFile(filename) as tif:
-                    dim = tif.series[0].ndim
-                    print('Found Stack dimension: '+str(tif.series[0].shape)+' in "' + filename+'"')
-                    if dim in [2,3,4] and not self.is2D_video.get():
-            
-                        try:
-                            self.original_t_dim = tif.series[0].shape[-4]
-                            print('t dim = '+str(self.original_t_dim))
-                        except IndexError:
-                            pass
-                        try:
-                            print('Z dim = '+str(tif.series[0].shape[-3]))
-                        except IndexError:
-                            pass
-                        try:
-                            print('Y dim = '+str(tif.series[0].shape[-2]))
-                            print('X dim = '+str(tif.series[0].shape[-1]))
-                        except IndexError:
-                            pass
-                    elif dim == 3 and self.is2D_video.get():
-                        self.original_t_dim = tif.series[0].shape[-3]
-                        print('t dim = '+str(self.original_t_dim))
-                        print('Y dim = '+str(tif.series[0].shape[-2]))
-                        print('X dim = '+str(tif.series[0].shape[-1]))
-                    else:            
-                        print('Image dimension not supported') 
-
+        for self.filename in self.filenames:
+            shape = self.decide_data_type()
+            print('Found Stack dimension: '+str(shape)+' in "' + self.filename+'"')
+    
+    @timer_func
     def process(self):
-        if len(self.filenames)>1:
-            self.ranges = []
         
         self.upsampling_factor = int(self.upsampling_factor_spinbox.get())
-        self.is2D = self.is2D_video.get()
+        self.is2D = self.is_2D_video_var.get()
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
-            self.is_tiff = False
-            self.is_single_frame = False
-            self.is_single_volume = False
-            self.is_2D_video = False
-            self.is_3D_video = False
+            if len(self.filenames)>1: # deactivate ranges picking for multiple files and reset ranges from previous file
+                self.ranges = [] 
 
-            if self.filename.endswith('.ird'):
-                import rawdata
-                import napari_streamin.arrays   
-                self.ird_file = rawdata.InputFile()
-                self.ird_file.open(self.filename)
-                self.provider = rawdata.ImageDataProvider(self.ird_file,0)
-                images = napari_streamin.arrays.VolumeArray(self.provider)
-                self.original_t_dim = images.shape[-4]
-                
-                if self.is2D:
-                    self.is_2D_video = True 
-                    self.process_2Dt()
-                else:
-                    self.is_3D_video = True
-                    self.process_4D()
+            self.decide_data_type()
+            print("Processing: '"+self.filename+"' \nloading data")
 
-            elif self.filename.endswith('.tif') or self.filename.endswith('.tiff'):
-                self.is_tiff = True           
-                print("Processing: '"+self.filename+"' \nloading data")
+            if self.is_single_frame or self.is_single_volume:
                 with tiff.TiffFile(self.filename) as tif:
-                    self.dim = tif.series[0].ndim
-                    self.tif_shape = tif.series[0].shape
-                    self.dtype = tif.pages[0].dtype
-                    self.axes = tif.series[0].axes
-                    try:
-                        self.original_t_dim = tif.series[0].shape[-4]
-                    except IndexError:
-                        pass
-
-                if self.dim in [2,3] and not self.is2D:
-
-                    with tiff.TiffFile(self.filename) as tif:
-                        data = tif.asarray()
-                        if self.melt:
-                            snow_value = np.amax(data)
-                    if self.dim == 2:
-                        self.is_single_frame = True
-                        new_shape = self.create_new_array(data)[0]
-                        if self.melt:
-                            data = self.melt_snow(data,snow_value)
+                    data = tif.asarray()
+                    new_shape = self.create_new_array(data)[0]
+                    if self.melt:
+                        snow_value = np.amax(data)
+                        data = self.melt_snow(data,snow_value)
+                    if self.is_single_frame:
                         remapped_image = self.process_2D(data,new_shape)
-                        print('processing done')
-                        self.save_image(remapped_image)
-                    elif self.dim == 3:
-                        self.is_single_volume = True
-                        new_shape = self.create_new_array(data)[0]
-                        if self.melt:
-                            data = self.melt_snow(data,snow_value)
+                    elif self.is_single_volume:
                         remapped_image = self.process_3D(data,new_shape)
-                        print('processing done')
-                        self.save_image(remapped_image)
+                    print('processing done')
+                    self.save_image(remapped_image)
 
-                elif self.dim == 4 and not self.is2D:
-                    self.is_3D_video = True
-                    self.process_4D()
-
-                elif self.dim == 3 and self.is2D:
-                    self.is_2D_video = True
-                    self.process_2Dt()
-
-                else:
-                    print('Image dimension not supported!')
+            elif self.is_3D_video:
+                self.process_4D()
+            elif self.is_2D_video:
+                self.process_2Dt()
             else:
-                print('File format not supported')
+                print('Image dimension not supported!')
+            if self.is_ird:
+                self.ird_file.close()
+        
         
     def add_range(self):
         self.text_ranges.config(state=NORMAL)
@@ -494,7 +474,7 @@ class App:
             # create a memmory mapped array to enable processing of larger than RAM files:
             if self.is_tiff:
                 memmap_filename = self.filename.replace('.tif',name+'.tif')
-            elif self.filename.endswith('.ird'):
+            elif self.is_ird:
                 memmap_filename = self.filename.replace('.ird',name+'.tif')
             if '_TEMP' in memmap_filename:
                 self.in_memmap_filename = memmap_filename
@@ -632,7 +612,7 @@ class App:
 
         sections = self.create_section_indices()               
 
-        if self.filename.endswith('.ird'):
+        if self.is_ird:
             data, t_dim, snow_value, in_memmap = self.load_ird(sections)
                             
 
@@ -677,7 +657,7 @@ class App:
                     if self.verbose.get():
                         print('Time elapsed: '+str(timer()-start))
                         start=timer()
-        if self.filename.endswith('.ird'):
+        if self.is_ird:
                 self.ird_file.close()
         if in_memmap:
             data.flush()
@@ -691,12 +671,11 @@ class App:
 
         sections = self.create_section_indices()
 
-        if self.filename.endswith('.ird'):
+        if self.is_ird:
             data, t_dim, snow_value, in_memmap = self.load_ird(sections,is2Dt=True)
             
         elif self.is_tiff:
             t_dim, z_dim, tif_shape = self.calc_t_dim(self.tif_shape)  
-            print(tif_shape)
             # Load data either in RAM or as memmap
             try:
                 data = np.zeros(tif_shape,dtype=np.uint16)
@@ -896,18 +875,18 @@ class App:
                 self.save_image(new_shape)     
         return
 
-    def save_image(self,file):
+    def save_image(self,data):
         print('compressing and saving data')
 
         outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
-        if self.is2D:
+        if self.is_2D_video:
             axes = 'TYX'
         else:
             axes = 'TZYX'
 
         tiff.imwrite(
         outfile,
-        file,
+        data,
         ome=TRUE,
         compression=('zlib', 6),
         resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
@@ -919,7 +898,7 @@ class App:
         # 'fps': 30.0,
         'axes': axes,
         })
-        
+        del data
         print('Data compressed and saved')
 
     def compress_image(self,path):
