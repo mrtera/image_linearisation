@@ -180,9 +180,9 @@ class App:
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
-        self.is_2D_video_var = BooleanVar(value=False)
-        is_2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is_2D_video_var)
-        is_2D_video_checkbox.grid(row=current_row, column=0)
+        self.is_single_volume_var = BooleanVar(value=False)
+        is_single_volume_checkbox = Checkbutton(settings_frame, text='is single volume', variable=self.is_single_volume_var)
+        is_single_volume_checkbox.grid(row=current_row, column=0)
 
         self.verbose = BooleanVar(value=False)
         verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
@@ -289,11 +289,9 @@ class App:
             if images.shape[1]==1:
                 images = napari_streamin.arrays.ImageArray(self.provider)
                 images.image_averaging = self.ird_2d_averaging.get()
-                self.is_2D_video_var.set(True)
                 self.is_2D_video = True
             else:
                 self.is_3D_video = True
-                self.is_2D_video_var.set(False)
             self.original_t_dim = images.shape[0]
             shape = images.shape
         
@@ -304,26 +302,25 @@ class App:
                 self.tif_shape = tif.series[0].shape
                 self.dtype = tif.pages[0].dtype
                 self.axes = tif.series[0].axes
-                try:
-                    self.original_t_dim = tif.series[0].shape[-4]
-                except IndexError:
-                    pass
-            if self.dim in [2,3] and not self.is_2D_video_var.get():
-                if self.dim == 2:
-                    self.is_single_frame = True
-                elif self.dim == 3:
-                    self.is_single_volume = True
-            elif self.dim == 4:
-                self.is_3D_video = True
-            elif self.dim == 3 and self.is_2D_video_var.get():
+
+            if self.dim == 2:
+                self.is_single_frame = True
+            elif self.dim == 3 and self.is_single_volume_var.get():
+                self.is_single_volume = True
+            elif self.dim == 3 and not self.is_single_volume_var.get():
                 self.is_2D_video = True
                 self.original_t_dim = self.tif_shape[0]
+            elif self.dim == 4:
+                self.is_3D_video = True
+                self.original_t_dim = self.tif_shape[0]
+            
             else:
                 print('Image dimension not supported!')
             shape = self.tif_shape
         return shape
 
     def open_image(self):
+        self.ranges = []
         filenames = filedialog.askopenfilenames(filetypes=[("SLIDE data","*.ird"),("SLIDE data","*.tif"),("SLIDE data","*.tiff")])
         self.filenames = list(filenames)
                    
@@ -335,7 +332,6 @@ class App:
     def process(self):
         
         self.upsampling_factor = int(self.upsampling_factor_spinbox.get())
-        self.is2D = self.is_2D_video_var.get()
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
@@ -368,6 +364,8 @@ class App:
                 print('Image dimension not supported!')
             if self.is_ird:
                 self.ird_file.close()
+            self.text_ranges.delete(2.0, END)
+
         
         
     def add_range(self):
@@ -468,27 +466,18 @@ class App:
         if self.is_single_frame:
             shape = (y_dim,x_dim)
             new_array = np.zeros(shape,dtype='uint16')
+
         if self.is_single_volume:
             shape = (z_dim,y_dim,x_dim)
             new_array = np.zeros(shape,dtype='uint16')
 
         if self.is_2D_video:
             shape = (t_dim,y_dim,x_dim)
-            try:
-                new_array = np.zeros(shape,dtype='uint16')  
-            except np.core._exceptions._ArrayMemoryError:
-                print('MemoryError: File too large for RAM, processing with memmap')
-                new_array = self.memap(shape,name='_processed')
-                memmap = True
+            memmap, new_array = self.initialize_data_array(shape,name='_processed')
                 
         if self.is_3D_video:
             shape = (t_dim,z_dim,y_dim,x_dim)
-            try:
-                new_array = np.zeros(shape,dtype='uint16')
-            except np.core._exceptions._ArrayMemoryError:
-                print('MemoryError: File too large for RAM, processing with memmap')
-                new_array = self.memap(shape,name='_processed')
-                memmap = True
+            memmap, new_array = self.initialize_data_array(shape,name='_processed')
         return new_array, memmap
 
 
@@ -506,13 +495,7 @@ class App:
         tif_shape = irdata.shape
         t_dim, z_dim, tif_shape = self.calc_t_dim(tif_shape)
 
-        try:
-            data = np.zeros(tif_shape,dtype=np.uint16)
-        except np.core._exceptions._ArrayMemoryError:
-            in_memmap = True
-            print('MemoryError: File too large for RAM, writing original data to memmap')
-            data = self.memap(tif_shape)
-            print('Writing data to memory-mapped array')
+        in_memmap, data = self.initialize_data_array(tif_shape)
 
         match is2Dt:
             case False:        
@@ -530,6 +513,17 @@ class App:
 
         return data, t_dim, snow_value, in_memmap
 
+    def initialize_data_array(self, tif_shape, name=''):
+        memmap = False
+        try:
+            data = np.zeros(tif_shape,dtype=np.uint16)
+        except np.core._exceptions._ArrayMemoryError:
+            memmap = True
+            print('MemoryError: File too large for RAM, writing original data to memmap')
+            data = self.memap(tif_shape,name=name)
+            print('Writing data to memory-mapped array')
+        return memmap,data
+
 
     def create_section_indices(self):
         if self.ranges == []:
@@ -546,8 +540,6 @@ class App:
 
 
     def process_4D(self):
-        in_memmap = False
-        out_memmap = False
         snow_value = 0    
 
         sections = self.create_section_indices()               
@@ -559,12 +551,7 @@ class App:
         elif self.is_tiff:   
             t_dim, z_dim, tif_shape = self.calc_t_dim(self.tif_shape)  
             # Load data either in RAM or as memmap
-            try:
-                data = np.zeros(tif_shape,dtype=np.uint16)
-            except np.core._exceptions._ArrayMemoryError:
-                in_memmap = True
-                print('MemoryError: File too large for RAM, loading data to memory-mapped array')
-                data = self.memap(tif_shape)
+            in_memmap, data = self.initialize_data_array(tif_shape)
 
             with tiff.TiffFile(self.filename) as tif:
                 for timepoints in range(t_dim):
@@ -605,8 +592,6 @@ class App:
 
 
     def process_2Dt(self):
-        in_memmap = False
-        out_memmap = False
         snow_value = 0
 
         sections = self.create_section_indices()
@@ -617,12 +602,7 @@ class App:
         elif self.is_tiff:
             t_dim, z_dim, tif_shape = self.calc_t_dim(self.tif_shape)  
             # Load data either in RAM or as memmap
-            try:
-                data = np.zeros(tif_shape,dtype=np.uint16)
-            except np.core._exceptions._ArrayMemoryError:
-                in_memmap = True
-                print('MemoryError: File too large for RAM, loading data to memory-mapped array')
-                data = self.memap(tif_shape)
+            in_memmap, data = self.initialize_data_array(tif_shape)
 
             with tiff.TiffFile(self.filename) as tif:
                 for timepoints in range(t_dim):
@@ -684,7 +664,6 @@ class App:
             
             data=remapped_data
             data = np.swapaxes(data,0,1)
-    
         return data
 
     def process_2D(self,data,shape_array):
@@ -846,7 +825,7 @@ class App:
         try:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
-                if self.is2D:
+                if self.is_2D_video:
                     axes = 'TYX'
                 else:
                     axes = 'TZYX'
