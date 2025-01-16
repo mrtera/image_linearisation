@@ -193,10 +193,6 @@ class App:
         settings_frame['relief'] = 'groove'
         settings_frame.grid(row=current_row, column =0,columnspan=2)
 
-        self.verbose = BooleanVar(value=False)
-        verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
-        verbose.grid(row=current_row, column=3)
-
         label = Label(settings_frame, text='correct in:')
         label.grid(row=current_row, column=0)
         current_row += 1
@@ -240,17 +236,21 @@ class App:
         self.snow_threshold_spinbox.grid(row=current_row, column=3)
 
         self.remove_snow = BooleanVar(value=True)
-        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x=', variable=self.remove_snow)
-        remove_snow_checkbox.grid(row=current_row, column=0, columnspan=2)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x =', variable=self.remove_snow)
+        remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
         self.is_2D_video_var = BooleanVar(value=False)
         is_2D_video_checkbox = Checkbutton(settings_frame, text='is 2D Video', variable=self.is_2D_video_var)
         is_2D_video_checkbox.grid(row=current_row, column=0)
 
+        self.verbose = BooleanVar(value=False)
+        verbose = Checkbutton(settings_frame, text='verbose', variable=self.verbose)
+        verbose.grid(row=current_row, column=3)
+
         self.rescale_image = BooleanVar(value=True)
         rescale_image_checkbox = Checkbutton(settings_frame, text='rescale image', variable=self.rescale_image)
-        rescale_image_checkbox.grid(row=current_row, column=3, columnspan=1)
+        rescale_image_checkbox.grid(row=current_row, column=1)
 
         # options for time ranges
         current_row = 0
@@ -305,7 +305,7 @@ class App:
         ird_frame['relief'] = 'groove'
         ird_frame.grid(row=current_row, column =3)
         
-        ird_label = Label(ird_frame, text='IRD settings:')
+        ird_label = Label(ird_frame, text='ird settings:')
         ird_label.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
