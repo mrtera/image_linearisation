@@ -335,7 +335,7 @@ class App:
         try:
             del self.original_t_dim
         except AttributeError:
-            print('No original t_dim found')
+            pass
 
         if self.filename.endswith('.ird'):
             self.is_ird = True
