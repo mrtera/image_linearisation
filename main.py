@@ -199,7 +199,7 @@ class App:
         ranges_frame['relief'] = 'groove'
         ranges_frame.grid(row=current_row, column =2)
 
-        ird_label = Label(ranges_frame, text='option to select time ranges:')
+        ird_label = Label(ranges_frame, text='time ranges (no batch, default all):')
         ird_label.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
