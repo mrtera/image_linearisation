@@ -77,66 +77,6 @@ def remapping3D(data,shape_array,factor): # factor must be in (2,4,8,16,32,...)
     return data
 
 
-#     # if x:
-#     #     data = np.swapaxes(data,1,2)
-#     #     zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-#     #     for plane in prange(zoomed_image.shape[0]):
-#     #         for row in prange(zoomed_image.shape[1]):
-#     #             row_data = int(row/2)
-#     #             if row % 2 == 0:
-#     #                 for pixel in prange(zoomed_image.shape[2]):
-#     #                     zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-#     #             else:
-#     #                 for pixel in prange(zoomed_image.shape[2]):
-#     #                     zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-#     #     data=zoomed_image
-        
-#     #     dim=shape_array.shape[2]
-#     #     dim_original = data.shape[1]
-#     #     remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-#     #     for plane in prange(data.shape[0]):
-#     #         sum_correction_factor = 0
-#     #         for row in range(dim):
-#     #             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-#     #             sum_correction_factor += correction_factor
-#     #             upsampled_row = int(np.round(dim_original*sum_correction_factor))
-#     #             bins= int(np.round(dim_original*correction_factor))
-#     #             for pixel in prange(data.shape[2]):      
-#     #                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-#     #     remapped_image = np.swapaxes(remapped_image,1,2)
-#     #     data = np.swapaxes(data,1,2)
-#     #     data = remapped_image     
-    
-#     # if z:
-#     #     data = np.swapaxes(data,0,1)
-#     #     zoomed_image = np.zeros((data.shape[0],data.shape[1]*2,data.shape[2]),dtype='uint16')
-#     #     for plane in prange(zoomed_image.shape[0]):
-#     #         for row in prange(zoomed_image.shape[1]):
-#     #             row_data = int(row/2)
-#     #             if row % 2 == 0:
-#     #                 for pixel in prange(zoomed_image.shape[2]):
-#     #                     zoomed_image[plane,row,pixel] = data[plane,row_data,pixel]
-#     #             else:
-#     #                 for pixel in prange(zoomed_image.shape[2]):
-#     #                     zoomed_image[plane,row,pixel] = np.mean(data[plane,row_data:row_data+2,pixel])
-#     #     data=zoomed_image
-
-#     #     dim=shape_array.shape[0]
-#     #     dim_original = data.shape[1]
-#     #     remapped_image = np.zeros((data.shape[0],dim,data.shape[2]),dtype='uint16')
-#     #     for plane in prange(data.shape[0]):
-#     #         sum_correction_factor = 0
-#     #         for row in range(dim):
-#     #             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
-#     #             sum_correction_factor += correction_factor
-#     #             upsampled_row = int(np.round(dim_original*sum_correction_factor))
-#     #             bins= int(np.round(dim_original*correction_factor))
-#     #             for pixel in prange(data.shape[2]):      
-#     #                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
-#     #     remapped_image = np.swapaxes(remapped_image,0,1)
-#     #     data = remapped_image
-
-    # return data
 @jit(parallel=True)
 def remapping2D(data,shape_array,factor):
     new_row_count = data.shape[0] * factor
@@ -400,7 +340,7 @@ class App:
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
-            if len(self.filenames)>1: # deactivate ranges picking for multiple files and reset ranges from previous file
+            if len(self.filenames)>1: # deactivate ranges for multiple files and reset ranges from previous file
                 self.ranges = [] 
 
             self.decide_data_type()
