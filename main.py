@@ -800,6 +800,8 @@ class App:
         outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
         if self.is_2D_video:
             axes = 'TYX'
+        elif self.is_single_volume:
+            axes = 'TYX'
         else:
             axes = 'TZYX'
 
