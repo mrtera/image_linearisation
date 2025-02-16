@@ -793,17 +793,23 @@ class App:
             else:
                 self.save_image(new_shape)     
         return
-
-    def save_image(self,data):
-        print('compressing and saving data')
-
-        outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
-        if self.is_2D_video:
+    
+    def get_axes(self):
+        if self.is_single_frame:
+            axes = 'YX'
+        elif self.is_2D_video:
             axes = 'TYX'
         elif self.is_single_volume:
             axes = 'TYX'
         else:
             axes = 'TZYX'
+        return axes
+
+    def save_image(self,data):
+        print('compressing and saving data')
+
+        outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
+        axes = self.get_axes()
 
         tiff.imwrite(
         outfile,
@@ -827,10 +833,7 @@ class App:
         try:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
-                if self.is_2D_video:
-                    axes = 'TYX'
-                else:
-                    axes = 'TZYX'
+                axes = self.get_axes()
                 tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
                             data,
                             ome=TRUE,
