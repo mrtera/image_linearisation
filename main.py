@@ -808,7 +808,7 @@ class App:
     def save_image(self,data):
         print('compressing and saving data')
 
-        outfile = self.filename.replace('.ird', '_processed.tif').replace('.tif', '_processed.tif')
+        outfile = self.filename.replace('.tif', '_processed.tif').replace('.ird', '_processed.tif')
         axes = self.get_axes()
 
         tiff.imwrite(
