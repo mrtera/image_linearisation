@@ -817,7 +817,6 @@ class App:
         ome=TRUE,
         compression=('zlib', 6),
         resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
-        resolutionunit='MICROMETER',
         metadata={
         # 'spacing': 0.5,
         # 'unit': 'um',
@@ -839,7 +838,6 @@ class App:
                             ome=TRUE,
                             compression=('zlib', 6),
                             resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
-                            resolutionunit='MICROMETER',
                             metadata={
                             # 'spacing': 0.5,
                             # 'unit': 'um',
