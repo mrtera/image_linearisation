@@ -249,10 +249,10 @@ class App:
         ird_label.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
-        self.ird_2d_averaging = IntVar(value=1)
+        self.ird_2d_averaging = IntVar(value=100)
         ird_2d_averaging_label = Label(ird_frame, text='2D averaging:')
         ird_2d_averaging_label.grid(row=current_row, column=0)
-        ird_2d_averaging_spinbox = Spinbox(ird_frame, from_=1, to=1000, width=6, textvariable=self.ird_2d_averaging)
+        ird_2d_averaging_spinbox = Spinbox(ird_frame, from_=1, to=100000, width=6, textvariable=self.ird_2d_averaging)
         ird_2d_averaging_spinbox.set(self.ird_2d_averaging.get())
         ird_2d_averaging_spinbox.grid(row=current_row, column=1)
         current_row += 1
@@ -817,6 +817,7 @@ class App:
         ome=TRUE,
         compression=('zlib', 6),
         resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
+        resolutionunit='MICROMETER',
         metadata={
         # 'spacing': 0.5,
         # 'unit': 'um',
@@ -838,6 +839,7 @@ class App:
                             ome=TRUE,
                             compression=('zlib', 6),
                             resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
+                            resolutionunit='MICROMETER',
                             metadata={
                             # 'spacing': 0.5,
                             # 'unit': 'um',
