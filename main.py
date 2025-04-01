@@ -175,7 +175,7 @@ class App:
         self.snow_threshold_spinbox.set(0.9)
         self.snow_threshold_spinbox.grid(row=current_row, column=3)
 
-        self.remove_snow = BooleanVar(value=True)
+        self.remove_snow = BooleanVar(value=False)
         remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x =', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
