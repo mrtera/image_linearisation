@@ -609,10 +609,10 @@ class App:
 
         if self.flatten4D.get():
             print('Flattening 4D data')
-            data = flatten_4D(data)
-            print(data.shape)
-            # new_shape = flatten_4D(new_shape)
-            # print(new_shape.shape)
+            # data = flatten_4D(data)
+            # print(data.shape)
+            new_shape = flatten_4D(new_shape)
+            print(new_shape.shape)
         
         self.save_data(data,new_shape,in_memmap,out_memmap) 
 
