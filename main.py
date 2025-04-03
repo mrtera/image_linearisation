@@ -28,6 +28,19 @@ def timer_func(func):
 
 ### Functions for paralell processing ###
 #####CPU-processing#####
+
+@jit(parallel=True)
+def flatten_4D(data,shape_array):
+    # create new array for the flattened image
+    flattened_image = np.zeros((data.shape[0], shape_array.shape[2], data.shape[3]), dtype='uint16')
+    
+    # parallelize the loop over planes and rows
+    for time in prange(data.shape[0]):
+        for plane in prange(data.shape[1]):
+            flattened_image[time, :, :] += data[time, plane, :, :]            
+    return flattened_image
+
+
 # @timer_func
 @jit(parallel=True)  
 def remapping3D(data,shape_array,factor): # factor must be in (2,4,8,16,32,...)
@@ -169,7 +182,12 @@ class App:
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=current_row, column=0)
-        current_row += 1        
+        current_row += 1     
+
+        self.flatten4D = BooleanVar(value=True)   
+        flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 3Dt to 2Dt', variable=self.flatten4D)
+        flatten4D_checkbox.grid(row=current_row, column=0)
+        current_row += 1
 
         self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
         self.snow_threshold_spinbox.set(0.9)
@@ -588,6 +606,14 @@ class App:
                 self.ird_file.close()
         if in_memmap:
             data.flush()
+
+        if self.flatten4D.get():
+            print('Flattening 4D data')
+            data = flatten_4D(data)
+            print(data.shape)
+            new_shape = flatten_4D(new_shape)
+            print(new_shape.shape)
+        
         self.save_data(data,new_shape,in_memmap,out_memmap) 
 
 
@@ -810,6 +836,8 @@ class App:
 
         outfile = self.filename.replace('.tif', '_processed.tif').replace('.ird', '_processed.tif')
         axes = self.get_axes()
+        if self.flatten4D.get():
+            axes = 'TYX'
 
         tiff.imwrite(
         outfile,
@@ -834,6 +862,8 @@ class App:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
                 axes = self.get_axes()
+                if self.flatten4D.get():
+                    axes = 'TYX'
                 tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
                             data,
                             ome=TRUE,
