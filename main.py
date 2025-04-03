@@ -30,9 +30,9 @@ def timer_func(func):
 #####CPU-processing#####
 
 @jit(parallel=True)
-def flatten_4D(data,shape_array):
+def flatten_4D(data):
     # create new array for the flattened image
-    flattened_image = np.zeros((data.shape[0], shape_array.shape[2], data.shape[3]), dtype='uint16')
+    flattened_image = np.zeros((data.shape[0], data.shape[2], data.shape[3]), dtype='uint16')
     
     # parallelize the loop over planes and rows
     for time in prange(data.shape[0]):
@@ -611,8 +611,8 @@ class App:
             print('Flattening 4D data')
             data = flatten_4D(data)
             print(data.shape)
-            new_shape = flatten_4D(new_shape)
-            print(new_shape.shape)
+            # new_shape = flatten_4D(new_shape)
+            # print(new_shape.shape)
         
         self.save_data(data,new_shape,in_memmap,out_memmap) 
 
