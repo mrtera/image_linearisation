@@ -28,7 +28,6 @@ def timer_func(func):
 
 ### Functions for paralell processing ###
 #####CPU-processing#####
-
 @jit(parallel=True)
 def flatten_4D(data):
     # create new array for the flattened image
@@ -39,11 +38,9 @@ def flatten_4D(data):
         for plane in prange(data.shape[1]):
             flattened_image[time, :, :] += data[time, plane, :, :]            
     return flattened_image
-
-
 # @timer_func
 @jit(parallel=True)  
-def remapping3D(data,shape_array,factor): # factor must be in (2,4,8,16,32,...)
+def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,16,32,...)
     # calculate new row count
     new_row_count = data.shape[1] * factor
     
@@ -80,11 +77,15 @@ def remapping3D(data,shape_array,factor): # factor must be in (2,4,8,16,32,...)
     for plane in prange(data.shape[0]):
         sum_correction_factor = 0
         for row in range(dim):
-            correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+            if FDML:
+                index = (row+dim+1/2)/2
+                correction_factor = 1/(np.pi*np.sqrt(-1*index*(index-512)))
+            else:
+                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
             sum_correction_factor += correction_factor
             upsampled_row = int(np.round(dim_original*sum_correction_factor))
             bins= int(np.round(dim_original*correction_factor))
-            for pixel in prange(data.shape[2]):      
+            for pixel in prange(data.shape[2]):
                 remapped_image[plane,row,pixel] = np.mean(data[plane,upsampled_row:upsampled_row+bins,pixel])
     data = remapped_image
     return data
@@ -146,11 +147,22 @@ class App:
         settings_frame['relief'] = 'groove'
         settings_frame.grid(row=current_row, column =0,columnspan=2)
 
-        label = Label(settings_frame, text='correct in:')
+        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
+
+        self.do_FDML_correction = BooleanVar(value=True)
+        FDML_correction_checkbox = Checkbutton(settings_frame, text='correct FDML with', variable=self.do_FDML_correction)
+        FDML_correction_checkbox.grid(row=current_row, column=0,columnspan=1)
+        self.buffers = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.buffers.set(upsampling_values[2])
+        self.buffers.grid(row=current_row, column=1,columnspan=2)
+        label = Label(settings_frame, text='buffers')
+        label.grid(row=current_row, column=2, columnspan=1)
+        current_row += 1
+
+        label = Label(settings_frame, text='full sin correction in:')
         label.grid(row=current_row, column=0)
         current_row += 1
 
-        upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
         label = Label(settings_frame, text='Upsampleing factor:')
         label.grid(row=current_row, column=1, columnspan=2)
         self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
@@ -471,6 +483,8 @@ class App:
             t_dim = data.shape[-3]
  
         if self.rescale_image.get():
+            if self.do_FDML_correction.get():
+                x_dim = int(x_dim*2/(np.pi*self.buffers.get()))
             if self.do_x_correction.get():
                 x_dim = int(x_dim*2/np.pi)
             if self.do_y_correction.get():
@@ -593,7 +607,7 @@ class App:
 
         # process data
         print('correcting for sin distorsion')
-        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get():
+        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get():
             start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
@@ -662,6 +676,7 @@ class App:
         x = self.do_x_correction.get()
         y = self.do_y_correction.get()
         z = self.do_z_correction.get()
+        FDML = self.do_FDML_correction.get()
 
         if x:
             remapped_data = np.zeros((data.shape[0],data.shape[1],shape_array.shape[2]),dtype = 'uint16')
@@ -669,7 +684,10 @@ class App:
             shape_array = np.swapaxes(shape_array,1,2)
             data = np.swapaxes(data,1,2)
 
-            remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
+            if FDML:
+                remapped_data = remapping3D(data,shape_array,self.upsampling_factor,FDML=True)
+            else:
+                remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
