@@ -484,14 +484,14 @@ class App:
  
         if self.rescale_image.get():
             if self.do_FDML_correction.get():
-                x_dim = int(x_dim*2/(np.pi*self.buffers.get()))
+                x_dim = int(round(x_dim*2/np.pi))
             if self.do_x_correction.get():
-                x_dim = int(x_dim*2/np.pi)
+                x_dim = int(round(x_dim*2/np.pi))
             if self.do_y_correction.get():
-                y_dim = int(y_dim*2/np.pi)
+                y_dim = int(round(y_dim*2/np.pi))
             if self.do_z_correction.get():
                 try:
-                    z_dim = int(z_dim*2/np.pi)
+                    z_dim = int(round(z_dim*2/np.pi))
                 except UnboundLocalError:
                     pass
 
