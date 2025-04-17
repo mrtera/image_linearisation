@@ -153,47 +153,23 @@ class App:
 
         upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
 
-        self.do_FDML_correction = BooleanVar(value=True)
-        FDML_correction_checkbox = Checkbutton(settings_frame, text='correct FDML with 4 buffers', variable=self.do_FDML_correction)
-        FDML_correction_checkbox.grid(row=current_row, column=0,columnspan=1)
-        # self.buffers = Spinbox(settings_frame, values=upsampling_values, width=4)
-        # self.buffers.set(upsampling_values[2])
-        # self.buffers.grid(row=current_row, column=1,columnspan=2)
-        # label = Label(settings_frame, text='buffers')
-        # label.grid(row=current_row, column=2, columnspan=1)
-        current_row += 1
-
-        label = Label(settings_frame, text='full sin correction in:')
+        label = Label(settings_frame, text='galvo sin correction:')
         label.grid(row=current_row, column=0)
         current_row += 1
 
-        label = Label(settings_frame, text='Upsampleing factor:')
-        label.grid(row=current_row, column=1, columnspan=2)
-        self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_spinbox.set(upsampling_values[2])
-        self.upsampling_factor_spinbox.grid(row=current_row, column=3)
+        self.do_FDML_correction = BooleanVar(value=True)
+        FDML_correction_checkbox = Checkbutton(settings_frame, text='X-FDML 4 buffers correction', variable=self.do_FDML_correction, command=self.X_correction_flipflop_fdml)
+        FDML_correction_checkbox.grid(row=current_row, column=1,columnspan=3)
 
         self.do_x_correction = BooleanVar(value=False)
-        do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction)
+        do_x_correction_checkbox = Checkbutton(settings_frame, text='X', variable=self.do_x_correction, command=self.X_correction_flipflop_galvo)
         do_x_correction_checkbox.grid(row=current_row, column=0)
         current_row += 1
 
         self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=current_row, column=0)
-
-        label = Label(settings_frame, text='micron per pixel in X:')
-        label.grid(row=current_row, column=1, columnspan=2)
-        self.micron_x = Spinbox(settings_frame, from_=0, to = 2, increment=0.1, width=4)
-        self.micron_x.set(1)
-        self.micron_x.grid(row=current_row, column=3)
         current_row += 1
-
-        label = Label(settings_frame, text='micron per pixel in Y:')
-        label.grid(row=current_row, column=1, columnspan=2)
-        self.micron_y = Spinbox(settings_frame,  from_=0, to=2, increment=0.1, width=4)
-        self.micron_y.set(1)
-        self.micron_y.grid(row=current_row, column=3)
 
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
@@ -203,6 +179,12 @@ class App:
         self.flatten4D = BooleanVar(value=False)   
         flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 3Dt to 2Dt', variable=self.flatten4D)
         flatten4D_checkbox.grid(row=current_row, column=0)
+
+        label = Label(settings_frame, text='Upsampleing factor:')
+        label.grid(row=current_row, column=1, columnspan=2)
+        self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
+        self.upsampling_factor_spinbox.set(upsampling_values[2])
+        self.upsampling_factor_spinbox.grid(row=current_row, column=3)
         current_row += 1
 
         self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
@@ -210,7 +192,7 @@ class App:
         self.snow_threshold_spinbox.grid(row=current_row, column=3)
 
         self.remove_snow = BooleanVar(value=False)
-        remove_snow_checkbox = Checkbutton(settings_frame, text='remove snow above x*max_value, x =', variable=self.remove_snow)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='remove high value pixels above x*max_value, x =', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
@@ -298,6 +280,15 @@ class App:
         process = Button(root, text='Process Image', command=self.process)
         process.grid(row=1, column=1)
 
+    def X_correction_flipflop_fdml(self):
+        if self.do_x_correction.get() == True:
+            self.do_x_correction.set(False)
+            self.do_FDML_correction.set(True)
+    
+    def X_correction_flipflop_galvo(self):
+        if self.do_FDML_correction.get() == True:
+            self.do_FDML_correction.set(False)
+            self.do_x_correction.set(True)
                 
     def decide_data_type(self):
         self.is_tiff = False
@@ -866,13 +857,7 @@ class App:
         data,
         ome=TRUE,
         compression=('zlib', 6),
-        resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
-        resolutionunit='MICROMETER',
         metadata={
-        # 'spacing': 0.5,
-        # 'unit': 'um',
-        # 'finterval': 1 / 30,
-        # 'fps': 30.0,
         'axes': axes,
         })
         del data
