@@ -480,7 +480,7 @@ class App:
         if self.rescale_image.get():
             if self.do_FDML_correction.get():
                 x_dim = int(round(x_dim*np.sqrt(2)/(1/2*np.pi)))
-            elif self.do_x_correction.get():
+            if self.do_x_correction.get():
                 x_dim = int(round(x_dim*2/np.pi))
             if self.do_y_correction.get():
                 y_dim = int(round(y_dim*2/np.pi))
@@ -669,11 +669,11 @@ class App:
 
     def process_3D(self,data,shape_array):
         x = self.do_x_correction.get()
+        FDML = self.do_FDML_correction.get()
         y = self.do_y_correction.get()
         z = self.do_z_correction.get()
-        FDML = self.do_FDML_correction.get()
 
-        if x:
+        if x or FDML:
             remapped_data = np.zeros((data.shape[0],data.shape[1],shape_array.shape[2]),dtype = 'uint16')
             remapped_data = np.swapaxes(remapped_data,1,2)
             shape_array = np.swapaxes(shape_array,1,2)
