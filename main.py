@@ -713,10 +713,13 @@ class App:
             remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
             data=remapped_image
             
-        if self.do_x_correction.get():
+        if self.do_x_correction.get() or self.do_FDML_correction.get():
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_image = np.swapaxes(data,0,1)
-            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor)
+            if self.do_FDML_correction.get():
+                remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor,FDML=True)
+            else:
+                remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor)
             remapped_image = np.swapaxes(remapped_image,0,1)
         return remapped_image
 
