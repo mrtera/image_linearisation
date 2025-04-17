@@ -150,13 +150,13 @@ class App:
         upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
 
         self.do_FDML_correction = BooleanVar(value=True)
-        FDML_correction_checkbox = Checkbutton(settings_frame, text='correct FDML with', variable=self.do_FDML_correction)
+        FDML_correction_checkbox = Checkbutton(settings_frame, text='correct FDML with 4 buffers', variable=self.do_FDML_correction)
         FDML_correction_checkbox.grid(row=current_row, column=0,columnspan=1)
-        self.buffers = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.buffers.set(upsampling_values[2])
-        self.buffers.grid(row=current_row, column=1,columnspan=2)
-        label = Label(settings_frame, text='buffers')
-        label.grid(row=current_row, column=2, columnspan=1)
+        # self.buffers = Spinbox(settings_frame, values=upsampling_values, width=4)
+        # self.buffers.set(upsampling_values[2])
+        # self.buffers.grid(row=current_row, column=1,columnspan=2)
+        # label = Label(settings_frame, text='buffers')
+        # label.grid(row=current_row, column=2, columnspan=1)
         current_row += 1
 
         label = Label(settings_frame, text='full sin correction in:')
@@ -196,7 +196,7 @@ class App:
         do_z_correction_checkbox.grid(row=current_row, column=0)
         current_row += 1     
 
-        self.flatten4D = BooleanVar(value=True)   
+        self.flatten4D = BooleanVar(value=False)   
         flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 3Dt to 2Dt', variable=self.flatten4D)
         flatten4D_checkbox.grid(row=current_row, column=0)
         current_row += 1
@@ -484,8 +484,8 @@ class App:
  
         if self.rescale_image.get():
             if self.do_FDML_correction.get():
-                x_dim = int(round(x_dim*2/np.pi))
-            if self.do_x_correction.get():
+                x_dim = int(round(x_dim*np.sqrt(2)/(1/2*np.pi)))
+            elif self.do_x_correction.get():
                 x_dim = int(round(x_dim*2/np.pi))
             if self.do_y_correction.get():
                 y_dim = int(round(y_dim*2/np.pi))
