@@ -78,10 +78,7 @@ def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,
         sum_correction_factor = 0
         for row in range(dim):
             if FDML:
-                # index = (row+dim/2)/2+1/2
-                # max_dim =3/4*dim
-                correction_factor = (1/(np.pi*np.sqrt(1.5*dim-row)*np.sqrt(row+1/2*dim)))/(2/3)
-                # correction_factor = 1/(np.pi*np.sqrt(-1*index*(index-max_dim)))
+                correction_factor = (1/(np.pi*np.sqrt(1.5*dim-row)*np.sqrt(row+1/2*dim)))/(1/3)
             else:
                 correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
 
@@ -130,8 +127,7 @@ def remapping2D(data,shape_array,factor,FDML=False):
     sum_correction_factor = 0
     for row in range(dim):
         if FDML:
-            index = (row+dim+1/2)/2
-            correction_factor = 1/(np.pi*np.sqrt(-1*index*(index-dim)))
+            correction_factor = (1/(np.pi*np.sqrt(1.5*dim-row)*np.sqrt(row+1/2*dim)))/(1/3)
         else:
             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
