@@ -77,11 +77,11 @@ def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,
     for plane in prange(data.shape[0]):
         sum_correction_factor = 0
         for row in range(dim):
-            # if FDML:
-            index = (row+dim+1/2)/2
-            correction_factor = 1/(np.pi*np.sqrt(-1*index*(index-dim)))
-            # else:
-            #     correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
+            if FDML:
+                index = (row+dim/2)/2+1/2
+                correction_factor = 1/(np.pi*np.sqrt(-1*index*(index-dim)))
+            else:
+                correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
             sum_correction_factor += correction_factor
             upsampled_row = int(np.round(dim_original*sum_correction_factor))
             bins= int(np.round(dim_original*correction_factor))
