@@ -78,8 +78,8 @@ def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,
         sum_correction_factor = 0
         for row in range(dim):
             if FDML:
-                index = (row+dim/2)/2+1/2
-                max_dim =3/4*dim
+                # index = (row+dim/2)/2+1/2
+                # max_dim =3/4*dim
                 correction_factor = 1/(np.pi*np.sqrt(1.5*dim-row)*np.sqrt(row+1/2*dim)) 
                 # correction_factor = 1/(np.pi*np.sqrt(-1*index*(index-max_dim)))
             else:
