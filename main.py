@@ -182,7 +182,7 @@ class App:
         label = Label(settings_frame, text='Upsampleing factor:')
         label.grid(row=current_row, column=1, columnspan=2)
         self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
-        self.upsampling_factor_spinbox.set(upsampling_values[2])
+        self.upsampling_factor_spinbox.set(upsampling_values[4])
         self.upsampling_factor_spinbox.grid(row=current_row, column=3)
         current_row += 1
 
