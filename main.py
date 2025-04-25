@@ -38,6 +38,7 @@ def flatten_4D(data):
         for plane in prange(data.shape[1]):
             flattened_image[time, :, :] += data[time, plane, :, :]            
     return flattened_image
+
 # @timer_func
 @jit(parallel=True)  
 def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,16,32,...)
@@ -620,7 +621,8 @@ class App:
             # data = flatten_4D(data)
             # print(data.shape)
             new_shape = flatten_4D(new_shape)
-            print(new_shape.shape)
+            data = new_shape
+            print(str(new_shape.shape)+'1')
         
         self.save_data(data,new_shape,in_memmap,out_memmap) 
 
@@ -844,16 +846,15 @@ class App:
             axes = 'TYX'
         else:
             axes = 'TZYX'
+        if self.flatten4D.get():
+            axes = 'TYX'
         return axes
 
     def save_image(self,data):
         print('compressing and saving data')
-
         outfile = self.filename.replace('.tif', '_processed.tif').replace('.ird', '_processed.tif')
+        print(data.shape)
         axes = self.get_axes()
-        if self.flatten4D.get():
-            axes = 'TYX'
-
         tiff.imwrite(
         outfile,
         data,
@@ -871,8 +872,6 @@ class App:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
                 axes = self.get_axes()
-                if self.flatten4D.get():
-                    axes = 'TYX'
                 tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
                             data,
                             ome=TRUE,
@@ -880,10 +879,6 @@ class App:
                             resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
                             resolutionunit='MICROMETER',
                             metadata={
-                            # 'spacing': 0.5,
-                            # 'unit': 'um',
-                            # 'finterval': 1 / 30,
-                            # 'fps': 30.0,
                             'axes': axes,
                             })
             print('Data compressed and saved')
