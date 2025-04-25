@@ -621,8 +621,8 @@ class App:
             # data = flatten_4D(data)
             # print(data.shape)
             new_shape = flatten_4D(new_shape)
-            data = new_shape
-            print(str(new_shape.shape)+'1')
+            data = flatten_4D(data)
+            print(str(new_shape.shape))
         
         self.save_data(data,new_shape,in_memmap,out_memmap) 
 
