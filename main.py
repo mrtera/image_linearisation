@@ -39,7 +39,6 @@ def flatten_4D(data):
             flattened_image[time, :, :] += data[time, plane, :, :]            
     return flattened_image
 
-# @timer_func
 @jit(parallel=True)  
 def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,16,32,...)
     # calculate new row count
@@ -849,8 +848,7 @@ class App:
 
     def save_image(self,data):
         print('compressing and saving data')
-        outfile = self.filename.replace('.tif', '_processed.tif').replace('.ird', '_processed.tif')
-        print(data.shape)
+        outfile = self.filename.replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         axes = self.get_axes()
         tiff.imwrite(
         outfile,
@@ -869,7 +867,7 @@ class App:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
                 axes = self.get_axes()
-                tiff.imwrite(self.filename.replace('.tif','_processed.tif'),
+                tiff.imwrite(self.filename.replace('.tif','_processed.ome.tif'),
                             data,
                             ome=TRUE,
                             compression=('zlib', 6),
