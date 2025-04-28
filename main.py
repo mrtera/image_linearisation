@@ -871,8 +871,6 @@ class App:
                             data,
                             ome=TRUE,
                             compression=('zlib', 6),
-                            resolution=(1/float(self.micron_y.get()), 1/float(self.micron_x.get())),
-                            resolutionunit='MICROMETER',
                             metadata={
                             'axes': axes,
                             })
