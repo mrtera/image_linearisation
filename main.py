@@ -509,14 +509,27 @@ class App:
 
     def load_ird(self, sections, snow_value=0, in_memmap=False, is2Dt=False):
         import napari_streamin.arrays
+        import imaging # needed to change parameters such as undistort algorithm or sample processor
         match is2Dt:
             case False:
                 irdata = napari_streamin.arrays.VolumeArray(self.provider)
                 self.axes = 'QQYX'
+                try:
+                    irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
+                    irdata.undistort_y = imaging.ImageGenerator.Undistort__None
+                except:
+                    print('a new streamin version is avalible')
+
             case True:
                 irdata = napari_streamin.arrays.ImageArray(self.provider)
                 irdata.image_averaging = self.ird_2d_averaging.get()
                 self.axes = 'QYX'
+                try:
+                    irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
+                    irdata.undistort_y = imaging.ImageGenerator.Undistort__None
+                except:
+                    print('a new streamin version is avalible')
+
 
         tif_shape = irdata.shape
         t_dim, z_dim, tif_shape = self.calc_t_dim(tif_shape)
