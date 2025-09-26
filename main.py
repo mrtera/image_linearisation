@@ -867,7 +867,7 @@ class App:
         outfile,
         data,
         ome=TRUE,
-        compression=('zlib', 6),
+        compressionargs=('zlib', 6),
         metadata={
         'axes': axes,
         })
@@ -878,12 +878,13 @@ class App:
         print('attempting data compression')
         try:
             with tiff.TiffFile(path) as tif:
+
                 data = tif.asarray()
                 axes = self.get_axes()
                 tiff.imwrite(self.filename.replace('.tif','_processed.ome.tif'),
                             data,
                             ome=TRUE,
-                            compression=('zlib', 6),
+                            compressionargs=('zlib', 6),
                             metadata={
                             'axes': axes,
                             })
@@ -897,6 +898,3 @@ if __name__ == '__main__':
     app = App(root)
     root.mainloop()
 
-
-
-# %%
