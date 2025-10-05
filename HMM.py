@@ -39,7 +39,7 @@ import numpy as np
 import cv2
 from scipy import ndimage
 from matplotlib import pyplot as plt
-
+import tifffile as tiff
 
 def measure_speckle(sample):
     height, width = sample.shape  # get size of the image
@@ -148,3 +148,12 @@ def HybridMedianMean(sample, max_kernel_size=3, figures, plots, save_image):
     else:
         print('save_image only get two options: True or False')
         exit()
+
+filepath = '1vol.ome.tif'
+
+# Example of use
+image = cv2.imread(filepath, 0) # read the image in grayscale
+#%%
+HybridMedianMean(image, max_kernel_size=5, figures="True", plots="True", save_image="True")
+tiff.imwrite('denoising_image.tiff', image) # save the denoising image as tiff
+# %%
