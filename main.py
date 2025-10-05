@@ -1,15 +1,17 @@
 #%%
 import os
-from PIL import Image, ImageTk
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
-import tifffile as tiff
-import numpy as np
-import scipy as sp
-from numba import jit, prange
+try:
+    import tifffile as tiff
+    import numpy as np
+    from numba import jit, prange
+except ImportError:
+    print('tifffile, numpy or numba import error, please install with: \n pip install tifffile numpy numba')
 from timeit import default_timer as timer  
 from time import time 
+
 try:
     import rawdata
     import napari_streamin.arrays
