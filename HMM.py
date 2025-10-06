@@ -1,22 +1,18 @@
+
+
+
+
+
+
 """
-Title-->          HHM
-Author-->         Ana Doblas, Raul Castaneda,
-Date-->           03/08/2020
-Last modified-->  24/01/2020
-                  University of Memphis
-                  Department of Electrical and Computer Engineering
-                  Optical Imaging Research lab (OIRL)
-                  Memphis, TN 38152, USA.
-                  version 1.0 (2020)
-Email-->          adoblas@memphis.
-Abstract -->      Algorithm that allow to reduce the speckle noisy although the use of a hybrid median-mean method
 
 
 Citations -->     If using this code for publishing your results, please kindly cite us:
                   R. Castaneda, J. Garcia-Sucerquia and A. Doblas, “Speckle Noise Reduction in Digital Holography via a
                   Hybrid Median-Mean Approach,” Appl. Opt. XX, XX, p.p xxxx–xxxx
 
-Libraries-->      HMM use numpy, cv2, scipy and matplotlib as libraries.
+                  
+
 Running -->       For running HMM.py the script must be inside the folder project.
                   The implementation you must call the method  HybridMedianMean as
                   HMM.HybridMedianMean(image, max_kernel_size, figures, plots, save_image).
@@ -38,6 +34,7 @@ Output-->         speckle denoising image.
                   in the same folder where the file HMM.py is located
 """
 #%%
+# libraries
 import numpy as np
 import cv2
 from scipy import ndimage
@@ -123,7 +120,7 @@ def save(sample, speckle_contrast):
     cv2.imwrite('denoising image.jpg', speckle_contrast[:, :, -1])
 
 
-def HybridMedianMean(sample, max_kernel_size, figures, plots, save_image):
+def HybridMedianMean(sample, max_kernel_size=3, figures, plots, save_image):
     if max_kernel_size % 2 == 0:
         print('Kernel size must be a odd number')
         exit()
