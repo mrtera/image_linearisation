@@ -401,8 +401,6 @@ class App:
 
 
     def phase_shift_z(self,data,offset):
-            print('test')
-            print(offset)
             return np.roll(data,offset,axis=0)
         
         
@@ -885,13 +883,17 @@ class App:
         outfile = self.filename.replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         axes = self.get_axes()
         tiff.imwrite(
-        outfile,
-        data,
-        ome=TRUE,
-        compressionargs=('zlib', 6),
-        metadata={
-        'axes': axes,
-        })
+            outfile,
+            data,
+            ome=TRUE,
+            bigtiff=TRUE,
+            photometric='minisblack',
+            compression='zlib',
+            compressionargs={'level': 8},
+            metadata={
+            'axes': axes,
+            'unit': 'um',
+            })
         del data
         print('Data compressed and saved')
 
@@ -903,12 +905,16 @@ class App:
                 data = tif.asarray()
                 axes = self.get_axes()
                 tiff.imwrite(self.filename.replace('.tif','_processed.ome.tif'),
-                            data,
-                            ome=TRUE,
-                            compressionargs=('zlib', 6),
-                            metadata={
-                            'axes': axes,
-                            })
+                    data,
+                    ome=TRUE,
+                    bigtiff=TRUE,
+                    photometric='minisblack',
+                    compression='zlib',
+                    compressionargs={'level': 8},
+                    metadata={
+                    'axes': axes,
+                    'unit': 'um',
+                    })
             print('Data compressed and saved')
         except np.core._exceptions._ArrayMemoryError:
             print('Data too large for RAM, saved uncompressed data instead')
