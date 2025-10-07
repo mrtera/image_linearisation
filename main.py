@@ -175,7 +175,14 @@ class App:
         self.do_z_correction = BooleanVar(value=True)
         do_z_correction_checkbox = Checkbutton(settings_frame, text='Z', variable=self.do_z_correction)
         do_z_correction_checkbox.grid(row=current_row, column=0)
-        current_row += 1     
+        
+        self.rollz = IntVar(value=0)
+        rollz_label = Label(settings_frame, text='roll z by:')
+        rollz_label.grid(row=current_row, column=1)
+        rollz_spinbox = Spinbox(settings_frame, from_=-100, to=100, width=4, textvariable=self.rollz)
+        rollz_spinbox.set(self.rollz.get())
+        rollz_spinbox.grid(row=current_row, column=2)
+        current_row += 1
 
         self.flatten4D = BooleanVar(value=False)   
         flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 3Dt to 2Dt', variable=self.flatten4D)
@@ -392,6 +399,11 @@ class App:
                 self.ird_file.close()
             self.text_ranges.delete(2.0, END)
 
+
+    def phase_shift_z(self,data,offset):
+            print('test')
+            print(offset)
+            return np.roll(data,offset,axis=0)
         
         
     def add_range(self):
@@ -603,6 +615,13 @@ class App:
                     if timepoints % 50 == 0:
                         print('loading '+ str(timepoints) + '/' + str(t_dim) + ' volumes')
         print('Data loaded')
+
+        offset = self.rollz.get()
+        if offset != 0:
+            #roll every 2nd volume
+            for timestep in range(t_dim):
+                if timestep % 2 == 0:
+                    data[timestep] = self.phase_shift_z(data[timestep], offset)
 
         # melt snow if selected
         if self.melt:
