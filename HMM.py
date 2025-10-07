@@ -85,34 +85,34 @@ def speckle_reduction(max_speckle_contrast, x1, y1, x2, y2, sample, max_kernel_s
     return array_cont, array_speckle_contrast, speckle_contrast, dim_vectors, array_kernel_size
 
 
-def images(sample, speckle_contrast, dim_z):
-    plt.subplot(121).set_title("Original image")
-    plt.imshow(sample, cmap=plt.cm.gray)
-    plt.axis('off')
-    plt.subplot(122).set_title("Image denoising [" + str((2*dim_z-1)) + 'x' + str((2*dim_z-1)) + ']')
-    plt.imshow(speckle_contrast[:, :, 2], cmap=plt.cm.gray)
-    plt.axis('off')
-    plt.subplots_adjust(wspace=0.02, hspace=0.02, top=1, bottom=0, left=0, right=1)
-    plt.show()
+# def images(sample, speckle_contrast, dim_z):
+#     plt.subplot(121).set_title("Original image")
+#     plt.imshow(sample, cmap=plt.cm.gray)
+#     plt.axis('off')
+#     plt.subplot(122).set_title("Image denoising [" + str((2*dim_z-1)) + 'x' + str((2*dim_z-1)) + ']')
+#     plt.imshow(speckle_contrast[:, :, 2], cmap=plt.cm.gray)
+#     plt.axis('off')
+#     plt.subplots_adjust(wspace=0.02, hspace=0.02, top=1, bottom=0, left=0, right=1)
+#     plt.show()
 
 
-def plots_true(array_cont, array_speckle_contrast, array_kernel_size):
-    theory = 1 / np.sqrt(array_cont)
-    max_contrast = max(array_speckle_contrast)
-    vec_contras_speckle = array_speckle_contrast / max_contrast
-    plt.plot(array_cont, vec_contras_speckle, label="Hybrid median-mean", marker='o', color='green', linestyle='solid')
-    plt.plot(array_cont, theory, label="Theory", marker='s', color='red', linestyle='dashed')
-    plt.axis([1, array_cont.size, 0, 1])
-    plt.xlabel("Number of iterations")
-    plt.ylabel("Speckle contrast [a.u.]")
-    plt.legend(bbox_to_anchor=(1.05, 1), loc='upper right')
-    plt.title('Speckle contrast vs number of iterations')
-    plt.grid()
-    ax2 = plt.twiny()
-    ax2.set_xlabel('k value', color='black')
-    ax2.set_xticks(array_kernel_size)
-    ax2.set_xlim((1, array_kernel_size[-1]))
-    plt.show()
+# def plots_true(array_cont, array_speckle_contrast, array_kernel_size):
+#     theory = 1 / np.sqrt(array_cont)
+#     max_contrast = max(array_speckle_contrast)
+#     vec_contras_speckle = array_speckle_contrast / max_contrast
+#     plt.plot(array_cont, vec_contras_speckle, label="Hybrid median-mean", marker='o', color='green', linestyle='solid')
+#     plt.plot(array_cont, theory, label="Theory", marker='s', color='red', linestyle='dashed')
+#     plt.axis([1, array_cont.size, 0, 1])
+#     plt.xlabel("Number of iterations")
+#     plt.ylabel("Speckle contrast [a.u.]")
+#     plt.legend(bbox_to_anchor=(1.05, 1), loc='upper right')
+#     plt.title('Speckle contrast vs number of iterations')
+#     plt.grid()
+#     ax2 = plt.twiny()
+#     ax2.set_xlabel('k value', color='black')
+#     ax2.set_xticks(array_kernel_size)
+#     ax2.set_xlim((1, array_kernel_size[-1]))
+#     plt.show()
 
 
 def save(sample, speckle_contrast):
@@ -127,20 +127,20 @@ def HybridMedianMean(sample, max_kernel_size=3, figures, plots, save_image):
     max_speckle_contrast, x1, y1, x2, y2, sample = measure_speckle(sample)
     array_cont, array_speckle_contrast, speckle_contrast, dim_z, array_kernel_size = speckle_reduction\
         (max_speckle_contrast, x1, y1, x2, y2, sample, max_kernel_size)
-    if figures == "True":
-        images(sample, speckle_contrast, dim_z)
-    elif figures == "False":
-        pass
-    else:
-        print('figure only get two options: True or False')
-        exit()
-    if plots == "True":
-        plots_true(array_cont, array_speckle_contrast, array_kernel_size)
-    elif plots == "'False":
-        pass
-    else:
-        print('plots only get two options: True or False')
-        exit()
+    # if figures == "True":
+    #     images(sample, speckle_contrast, dim_z)
+    # elif figures == "False":
+    #     pass
+    # else:
+    #     print('figure only get two options: True or False')
+    #     exit()
+    # if plots == "True":
+    #     plots_true(array_cont, array_speckle_contrast, array_kernel_size)
+    # elif plots == "'False":
+    #     pass
+    # else:
+    #     print('plots only get two options: True or False')
+    #     exit()
     if save_image == "True":
         save(sample, speckle_contrast)
     elif save_image == "False":
@@ -154,6 +154,6 @@ filepath = '1vol.ome.tif'
 # Example of use
 image = cv2.imread(filepath, 0) # read the image in grayscale
 #%%
-HybridMedianMean(image, max_kernel_size=5, figures="True", plots="True", save_image="True")
+HybridMedianMean(image, max_kernel_size=3, figures="False", plots="False", save_image="True")
 tiff.imwrite('denoising_image.tiff', image) # save the denoising image as tiff
 # %%
