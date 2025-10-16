@@ -18,32 +18,103 @@ def timer_func(func):
 
 
 #%%
-
 #playing with parallelized sort networks
 @jit(nopython=True)
+def compare_and_swap(i, j):
+	if i > j:
+		return j,i
+	else:
+		return i,j
+
+
+@jit(nopython=True)
 def sort5(a):
-	# Sort network for 5 elements
-	a[0], a[1] = min(a[0], a[1]), max(a[0], a[1])
-	a[3], a[4] = min(a[3], a[4]), max(a[3], a[4])
-	a[2], a[4] = min(a[2], a[4]), max(a[2], a[4])
-	a[2], a[3] = min(a[2], a[3]), max(a[2], a[3])
-	a[0], a[3] = min(a[0], a[3]), max(a[0], a[3])
-	a[1], a[4] = min(a[1], a[4]), max(a[1], a[4])
-	a[1], a[2] = min(a[1], a[2]), max(a[1], a[2])
-	a[2], a[3] = min(a[2], a[3]), max(a[2], a[3])
+# Sort network for 5 element
+	for j in prange(2):
+		if j==0:
+			a[0], a[3] = compare_and_swap(a[0], a[3])
+		else:
+			a[1], a[4] = compare_and_swap(a[1], a[4])
+	for j in prange(2):
+		if j==0:
+			a[0], a[2] = compare_and_swap(a[0], a[2])
+		else:
+			a[1], a[3] = compare_and_swap(a[1], a[3])
+	for j in prange(2):
+		if j==0:
+			a[0], a[1] = compare_and_swap(a[0], a[1])
+		else:
+			a[2], a[4] = compare_and_swap(a[2], a[4])
+	for j in prange(2):
+		if j==0:
+			a[1], a[2] = compare_and_swap(a[1], a[2])
+		else:
+			a[3], a[4] = compare_and_swap(a[3], a[4])
+		
+	a[2], a[3] = compare_and_swap(a[2], a[3])
+	print(a)
 	return a
 
+@jit(nopython=True)
+def sort7(a):
+	# Sort network for 7 elements
+	a[0], a[6] = compare_and_swap(a[0], a[6])
+	a[2], a[3] = compare_and_swap(a[2], a[3])
+	a[4], a[5] = compare_and_swap(a[4], a[5])
+	a[0], a[2] = compare_and_swap(a[0], a[2])
+	a[1], a[4] = compare_and_swap(a[1], a[4])
+	a[3], a[6] = compare_and_swap(a[3], a[6])
+	a[0], a[1] = compare_and_swap(a[0], a[1])
+	a[2], a[5] = compare_and_swap(a[2], a[5])
+	a[3], a[4] = compare_and_swap(a[3], a[4])
+	a[1], a[2] = compare_and_swap(a[1], a[2])
+	a[4], a[6] = compare_and_swap(a[4], a[6])
+	a[2], a[3] = compare_and_swap(a[2], a[3])
+	a[4], a[5] = compare_and_swap(a[4], a[5])
+	a[1], a[2] = compare_and_swap(a[1], a[2])
+	a[3], a[4] = compare_and_swap(a[3], a[4])
+	a[5], a[6] = compare_and_swap(a[5], a[6])
+	return a
+
+@jit(nopython=True)
+def sort8(a):
+	a[0], a[2] = compare_and_swap(a[0], a[2])
+	a[1], a[3] = compare_and_swap(a[1], a[3])
+	a[4], a[6] = compare_and_swap(a[4], a[6])
+	a[5], a[7] = compare_and_swap(a[5], a[7])
+
+	a[0], a[4] = compare_and_swap(a[0], a[4])
+	a[1], a[5] = compare_and_swap(a[1], a[5])
+	a[2], a[6] = compare_and_swap(a[2], a[6])
+	a[3], a[7] = compare_and_swap(a[3], a[7])
+	
+	a[0], a[1] = compare_and_swap(a[0], a[1])
+	a[2], a[3] = compare_and_swap(a[2], a[3])
+	a[4], a[5] = compare_and_swap(a[4], a[5])
+	a[6], a[7] = compare_and_swap(a[6], a[7])
+	
+	a[2], a[4] = compare_and_swap(a[2], a[4])
+	a[3], a[5] = compare_and_swap(a[3], a[5])
+	
+	a[1], a[4] = compare_and_swap(a[1], a[4])
+	a[3], a[6] = compare_and_swap(a[3], a[6])
+	
+	a[1], a[2] = compare_and_swap(a[1], a[2])
+	a[3], a[4] = compare_and_swap(a[3], a[4])
+	a[5], a[6] = compare_and_swap(a[5], a[6])
+	return a
 
 @jit(nopython=True)
 def median(arr):
 	length = len(arr)
-	if length == 5:
-		arr_sorted = sort5(arr)
-		# arr_sorted = np.sort(arr).astype(np.uint16)
-
-	else:
-		arr_sorted = np.sort(arr).astype(np.uint16)
-
+	match length:
+		case 5:
+			arr_sorted = sort5(arr)
+		case 7:
+			arr_sorted = sort7(arr)
+		case 8:
+			arr_sorted = sort8(arr)
+		
 	if length % 2 == 0:
 		median_value = int(arr_sorted[int(length/2-1)]/2+arr_sorted[int(length/2)]/2)
 	else:
@@ -168,10 +239,10 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 if __name__ == "__main__":
 
 	# filepath = filedialog.askopenfilename()
-	with tiff.TiffFile(filepath) as tif:
-		print('Reading image...')
-		image = tif.asarray()
-		print('Image shape:', image.shape)
+	# with tiff.TiffFile(filepath) as tif:
+	# 	print('Reading image...')
+	# 	image = tif.asarray()
+	# 	print('Image shape:', image.shape)
 
 	if len(image.shape) == 3:
 		filtered_stack = hybrid_3d_median_filter(image)
