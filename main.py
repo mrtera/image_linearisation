@@ -1,5 +1,6 @@
 #%%
 import os
+from HMF import *
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
@@ -186,7 +187,7 @@ class App:
 
         self.flatten4D = BooleanVar(value=False)   
         flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 3Dt to 2Dt', variable=self.flatten4D)
-        flatten4D_checkbox.grid(row=current_row, column=0)
+        flatten4D_checkbox.grid(row=current_row, column=0, columnspan=2)
 
         label = Label(settings_frame, text='Upsampleing factor:')
         label.grid(row=current_row, column=1, columnspan=2)
@@ -202,6 +203,11 @@ class App:
         self.remove_snow = BooleanVar(value=False)
         remove_snow_checkbox = Checkbutton(settings_frame, text='remove high value pixels above x*max_value, x =', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
+        current_row += 1
+
+        self.apply_hybrid_median_filter = BooleanVar(value=False)
+        apply_hybrid_median_filter_checkbox = Checkbutton(settings_frame, text='apply hybrid median filter', variable=self.apply_hybrid_median_filter)
+        apply_hybrid_median_filter_checkbox.grid(row=current_row, column=1)
         current_row += 1
 
         self.is_single_volume_var = BooleanVar(value=False)
@@ -633,7 +639,7 @@ class App:
 
         # process data
         print('correcting for sin distorsion')
-        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get():
+        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get() or self.apply_hybrid_median_filter.get():
             start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
@@ -732,6 +738,9 @@ class App:
             
             data=remapped_data
             data = np.swapaxes(data,0,1)
+
+        if self.apply_hybrid_median_filter.get():
+            data = hybrid_3d_median_filter(data)
         return data
 
     def process_2D(self,data,shape_array):
@@ -880,7 +889,7 @@ class App:
 
     def save_image(self,data):
         print('compressing and saving data')
-        outfile = self.filename.replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
+        outfile = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         axes = self.get_axes()
         tiff.imwrite(
             outfile,
@@ -904,7 +913,7 @@ class App:
 
                 data = tif.asarray()
                 axes = self.get_axes()
-                tiff.imwrite(self.filename.replace('.tif','_processed.ome.tif'),
+                tiff.imwrite(self.filename.replace('.ome.tif','_processed.ome.tif'),
                     data,
                     ome=TRUE,
                     bigtiff=TRUE,
@@ -925,3 +934,5 @@ if __name__ == '__main__':
     app = App(root)
     root.mainloop()
 
+
+# %%

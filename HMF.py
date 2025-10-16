@@ -4,6 +4,19 @@ import numpy as np
 from tkinter import filedialog
 from numba import jit, prange
 
+from timeit import default_timer as timer  
+from time import time 
+
+def timer_func(func): 
+    def wrap_func(*args, **kwargs): 
+        t1 = time() 
+        result = func(*args, **kwargs) 
+        t2 = time() 
+        print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
+        return result 
+    return wrap_func 
+
+
 #%%
 @jit(nopython=True)
 def median(arr):
@@ -46,11 +59,11 @@ def get_pixel(stack,z_, y_, x_):
 	xi = int(x_)	
 
 	return stack[zi, yi, xi]
-	
+
+@timer_func
 @jit(nopython=True, parallel=True)
 def hybrid_3d_median_filter(stack, include_center_pixel=False):
 	stack = stack.astype(np.uint16)  # ensure input is uint16
-	# stack: 3D numpy array (depth, height, width)
 	depth, height, width = stack.shape
 	filtered_stack = np.zeros_like(stack).astype(np.uint16)
 	
@@ -114,11 +127,11 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 				marray3Xd[4] = get_pixel(stack, after_z, y, x - 1)
 
 				# prepare medianarray (7 entries, optionally 8)
-				# if include_center_pixel:
-				# 	medianarray = np.zeros(8, dtype=np.uint16)
-				# 	medianarray[7] = get_pixel(stack, z, y, x)
-				# else:
-				medianarray = np.zeros(7, dtype=np.uint16)
+				if include_center_pixel:
+					medianarray = np.zeros(8, dtype=np.uint16)
+					medianarray[7] = get_pixel(stack, z, y, x)
+				else:
+					medianarray = np.zeros(7, dtype=np.uint16)
 				medianarray[0] = median(marraythisX)
 				medianarray[1] = median(marraythisP)
 				medianarray[2] = median(marray3P)
@@ -130,30 +143,29 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 				filtered_stack[z, y, x] = median(medianarray)
 	return filtered_stack
 
-#%%
-# filepath = filedialog.askopenfilename()
-# with tiff.TiffFile(filepath) as tif:
-# 	print('Reading image...')
-# 	image = tif.asarray()
-# 	print('Image shape:', image.shape)
-#%%
-if len(image.shape) == 3:
-	filtered_stack = hybrid_3d_median_filter(image)
-	tiff.imwrite('denoised_image.tiff', filtered_stack, 
-			  compression='zlib',
-			  compressionargs={'level': 6},
-			  photometric='minisblack',
-			  metadata={'axes': 'ZYX'})
-elif len(image.shape) == 4:
-	for volume in range(image.shape[0]):
-		print(f'Processing volume {volume+1}/{image.shape[0]}')
-		image[volume] = hybrid_3d_median_filter(image[volume])
-	tiff.imwrite('denoised_image.tiff', image,
-			  compression='zlib',
-			  compressionargs={'level': 6},
-			  photometric='minisblack',
-			  metadata={'axes': 'TZYX'})
+if __name__ == "__main__":
 
-# tiff.imwrite('denoised_image.tiff', filtered_stack) # save the denoising image as tiff
+	filepath = filedialog.askopenfilename()
+	with tiff.TiffFile(filepath) as tif:
+		print('Reading image...')
+		image = tif.asarray()
+		print('Image shape:', image.shape)
+
+	if len(image.shape) == 3:
+		filtered_stack = hybrid_3d_median_filter(image)
+		tiff.imwrite('denoised_image.tiff', filtered_stack, 
+				compression='zlib',
+				compressionargs={'level': 6},
+				photometric='minisblack',
+				metadata={'axes': 'ZYX'})
+	elif len(image.shape) == 4:
+		for volume in range(image.shape[0]):
+			print(f'Processing volume {volume+1}/{image.shape[0]}')
+			image[volume] = hybrid_3d_median_filter(image[volume])
+		tiff.imwrite('denoised_image.tiff', image,
+				compression='zlib',
+				compressionargs={'level': 6},
+				photometric='minisblack',
+				metadata={'axes': 'TZYX'})
 
 # %%
