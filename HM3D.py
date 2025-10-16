@@ -129,14 +129,29 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 	return filtered_stack
 
 #%%
-# filepath = filedialog.askopenfilename()
-# with tiff.TiffFile(filepath) as tif:
-# 	print('Reading image...')
-# 	image = tif.asarray()
-# 	# image = image[0]
-# 	print('Image shape:', image.shape)
+filepath = filedialog.askopenfilename()
+with tiff.TiffFile(filepath) as tif:
+	print('Reading image...')
+	image = tif.asarray()
+	print('Image shape:', image.shape)
 #%%
-# print(image.dtype, image.shape)
-filtered_stack = hybrid_3d_median_filter(image)
+if len(image.shape) == 3:
+	filtered_stack = hybrid_3d_median_filter(image)
+	tiff.imwrite('denoised_image.tiff', filtered_stack, 
+			  compression='zlib',
+			  compressionargs={'level': 6},
+			  photometric='minisblack',
+			  metadata={'axes': 'ZYX'})
+elif len(image.shape) == 4:
+	for volume in range(image.shape[0]):
+		print(f'Processing volume {volume+1}/{image.shape[0]}')
+		image[volume] = hybrid_3d_median_filter(image[volume])
+	tiff.imwrite('denoised_image.tiff', image,
+			  compression='zlib',
+			  compressionargs={'level': 6},
+			  photometric='minisblack',
+			  metadata={'axes': 'TZYX'})
 
-tiff.imwrite('denoised_image.tiff', filtered_stack) # save the denoising image as tiff
+# tiff.imwrite('denoised_image.tiff', filtered_stack) # save the denoising image as tiff
+
+# %%
