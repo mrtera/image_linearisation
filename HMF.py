@@ -33,22 +33,22 @@ def sort5(a):
 	for j in prange(2):
 		if j==0:
 			a[0], a[3] = compare_and_swap(a[0], a[3])
-		elif j==1:
+		else:
 			a[1], a[4] = compare_and_swap(a[1], a[4])
 	for j in prange(2):
 		if j==0:
 			a[0], a[2] = compare_and_swap(a[0], a[2])
-		elif j==1:
+		else:
 			a[1], a[3] = compare_and_swap(a[1], a[3])
 	for j in prange(2):
 		if j==0:
 			a[0], a[1] = compare_and_swap(a[0], a[1])
-		elif j==1:
+		else:
 			a[2], a[4] = compare_and_swap(a[2], a[4])
 	for j in prange(2):
 		if j==0:
 			a[1], a[2] = compare_and_swap(a[1], a[2])
-		elif j==1:
+		else:
 			a[3], a[4] = compare_and_swap(a[3], a[4])
 		
 	a[2], a[3] = compare_and_swap(a[2], a[3])
@@ -63,38 +63,38 @@ def sort7(a):
 			a[0], a[6] = compare_and_swap(a[0], a[6])
 		elif _==1:
 			a[2], a[3] = compare_and_swap(a[2], a[3])
-		elif _==2:
+		else:
 			a[4], a[5] = compare_and_swap(a[4], a[5])
 	for j in prange(3):
 		if j==0:
 			a[0], a[2] = compare_and_swap(a[0], a[2])
 		elif j==1:
 			a[1], a[4] = compare_and_swap(a[1], a[4])
-		elif j==2:
+		else:
 			a[3], a[6] = compare_and_swap(a[3], a[6])
 	for j in prange(3):
 		if j==0:
 			a[0], a[1] = compare_and_swap(a[0], a[1])
 		elif j==1:
 			a[2], a[5] = compare_and_swap(a[2], a[5])
-		elif j==2:
+		else:
 			a[3], a[4] = compare_and_swap(a[3], a[4])
 	for i in prange(3):
 		if i==0:
 			a[1], a[2] = compare_and_swap(a[1], a[2])
-		elif i==1:
+		else:
 			a[4], a[6] = compare_and_swap(a[4], a[6])
 	for j in prange(3):
 		if j==0:
 			a[2], a[3] = compare_and_swap(a[2], a[3])
-		elif j==1:
+		else:
 			a[4], a[5] = compare_and_swap(a[4], a[5])
 	for i in prange(3):
 		if i==0:
 			a[1], a[2] = compare_and_swap(a[1], a[2])
 		elif i==1:
 			a[3], a[4] = compare_and_swap(a[3], a[4])
-		elif i==2:
+		else:
 			a[5], a[6] = compare_and_swap(a[5], a[6])
 	return a
 
@@ -107,7 +107,7 @@ def sort8(a):
 			a[1], a[3] = compare_and_swap(a[1], a[3])
 		elif j==2:
 			a[4], a[6] = compare_and_swap(a[4], a[6])
-		elif j==3:
+		else:
 			a[5], a[7] = compare_and_swap(a[5], a[7])
 	for j in prange(4):
 		if j==0:
@@ -116,7 +116,7 @@ def sort8(a):
 			a[1], a[5] = compare_and_swap(a[1], a[5])
 		elif j==2:
 			a[2], a[6] = compare_and_swap(a[2], a[6])
-		elif j==3:
+		else:
 			a[3], a[7] = compare_and_swap(a[3], a[7])
 	for j in prange(4):
 		if j==0:
@@ -125,24 +125,24 @@ def sort8(a):
 			a[2], a[3] = compare_and_swap(a[2], a[3])
 		elif j==2:
 			a[4], a[5] = compare_and_swap(a[4], a[5])
-		elif j==3:
+		else:
 			a[6], a[7] = compare_and_swap(a[6], a[7])
 	for i in prange(2):
 		if i==0:
 			a[2], a[4] = compare_and_swap(a[2], a[4])
-		elif i==1:
+		else:
 			a[3], a[5] = compare_and_swap(a[3], a[5])
 	for j in prange(2):
 		if j==0:
 			a[1], a[4] = compare_and_swap(a[1], a[4])
-		elif j==1:
+		else:
 			a[3], a[6] = compare_and_swap(a[3], a[6])
 	for i in prange(3):
 		if i==0:
 			a[1], a[2] = compare_and_swap(a[1], a[2])
 		elif i==1:
 			a[3], a[4] = compare_and_swap(a[3], a[4])
-		elif i==2:
+		else:
 			a[5], a[6] = compare_and_swap(a[5], a[6])
 	return a
 
