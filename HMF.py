@@ -33,75 +33,117 @@ def sort5(a):
 	for j in prange(2):
 		if j==0:
 			a[0], a[3] = compare_and_swap(a[0], a[3])
-		else:
+		elif j==1:
 			a[1], a[4] = compare_and_swap(a[1], a[4])
 	for j in prange(2):
 		if j==0:
 			a[0], a[2] = compare_and_swap(a[0], a[2])
-		else:
+		elif j==1:
 			a[1], a[3] = compare_and_swap(a[1], a[3])
 	for j in prange(2):
 		if j==0:
 			a[0], a[1] = compare_and_swap(a[0], a[1])
-		else:
+		elif j==1:
 			a[2], a[4] = compare_and_swap(a[2], a[4])
 	for j in prange(2):
 		if j==0:
 			a[1], a[2] = compare_and_swap(a[1], a[2])
-		else:
+		elif j==1:
 			a[3], a[4] = compare_and_swap(a[3], a[4])
 		
 	a[2], a[3] = compare_and_swap(a[2], a[3])
-	print(a)
+	# print(a)
 	return a
 
 @jit(nopython=True)
 def sort7(a):
 	# Sort network for 7 elements
-	a[0], a[6] = compare_and_swap(a[0], a[6])
-	a[2], a[3] = compare_and_swap(a[2], a[3])
-	a[4], a[5] = compare_and_swap(a[4], a[5])
-	a[0], a[2] = compare_and_swap(a[0], a[2])
-	a[1], a[4] = compare_and_swap(a[1], a[4])
-	a[3], a[6] = compare_and_swap(a[3], a[6])
-	a[0], a[1] = compare_and_swap(a[0], a[1])
-	a[2], a[5] = compare_and_swap(a[2], a[5])
-	a[3], a[4] = compare_and_swap(a[3], a[4])
-	a[1], a[2] = compare_and_swap(a[1], a[2])
-	a[4], a[6] = compare_and_swap(a[4], a[6])
-	a[2], a[3] = compare_and_swap(a[2], a[3])
-	a[4], a[5] = compare_and_swap(a[4], a[5])
-	a[1], a[2] = compare_and_swap(a[1], a[2])
-	a[3], a[4] = compare_and_swap(a[3], a[4])
-	a[5], a[6] = compare_and_swap(a[5], a[6])
+	for _ in prange(3):
+		if _==0:
+			a[0], a[6] = compare_and_swap(a[0], a[6])
+		elif _==1:
+			a[2], a[3] = compare_and_swap(a[2], a[3])
+		elif _==2:
+			a[4], a[5] = compare_and_swap(a[4], a[5])
+	for j in prange(3):
+		if j==0:
+			a[0], a[2] = compare_and_swap(a[0], a[2])
+		elif j==1:
+			a[1], a[4] = compare_and_swap(a[1], a[4])
+		elif j==2:
+			a[3], a[6] = compare_and_swap(a[3], a[6])
+	for j in prange(3):
+		if j==0:
+			a[0], a[1] = compare_and_swap(a[0], a[1])
+		elif j==1:
+			a[2], a[5] = compare_and_swap(a[2], a[5])
+		elif j==2:
+			a[3], a[4] = compare_and_swap(a[3], a[4])
+	for i in prange(3):
+		if i==0:
+			a[1], a[2] = compare_and_swap(a[1], a[2])
+		elif i==1:
+			a[4], a[6] = compare_and_swap(a[4], a[6])
+	for j in prange(3):
+		if j==0:
+			a[2], a[3] = compare_and_swap(a[2], a[3])
+		elif j==1:
+			a[4], a[5] = compare_and_swap(a[4], a[5])
+	for i in prange(3):
+		if i==0:
+			a[1], a[2] = compare_and_swap(a[1], a[2])
+		elif i==1:
+			a[3], a[4] = compare_and_swap(a[3], a[4])
+		elif i==2:
+			a[5], a[6] = compare_and_swap(a[5], a[6])
 	return a
 
 @jit(nopython=True)
 def sort8(a):
-	a[0], a[2] = compare_and_swap(a[0], a[2])
-	a[1], a[3] = compare_and_swap(a[1], a[3])
-	a[4], a[6] = compare_and_swap(a[4], a[6])
-	a[5], a[7] = compare_and_swap(a[5], a[7])
-
-	a[0], a[4] = compare_and_swap(a[0], a[4])
-	a[1], a[5] = compare_and_swap(a[1], a[5])
-	a[2], a[6] = compare_and_swap(a[2], a[6])
-	a[3], a[7] = compare_and_swap(a[3], a[7])
-	
-	a[0], a[1] = compare_and_swap(a[0], a[1])
-	a[2], a[3] = compare_and_swap(a[2], a[3])
-	a[4], a[5] = compare_and_swap(a[4], a[5])
-	a[6], a[7] = compare_and_swap(a[6], a[7])
-	
-	a[2], a[4] = compare_and_swap(a[2], a[4])
-	a[3], a[5] = compare_and_swap(a[3], a[5])
-	
-	a[1], a[4] = compare_and_swap(a[1], a[4])
-	a[3], a[6] = compare_and_swap(a[3], a[6])
-	
-	a[1], a[2] = compare_and_swap(a[1], a[2])
-	a[3], a[4] = compare_and_swap(a[3], a[4])
-	a[5], a[6] = compare_and_swap(a[5], a[6])
+	for j in prange(4):
+		if j==0:
+			a[0], a[2] = compare_and_swap(a[0], a[2])
+		elif j==1:
+			a[1], a[3] = compare_and_swap(a[1], a[3])
+		elif j==2:
+			a[4], a[6] = compare_and_swap(a[4], a[6])
+		elif j==3:
+			a[5], a[7] = compare_and_swap(a[5], a[7])
+	for j in prange(4):
+		if j==0:
+			a[0], a[4] = compare_and_swap(a[0], a[4])
+		elif j==1:
+			a[1], a[5] = compare_and_swap(a[1], a[5])
+		elif j==2:
+			a[2], a[6] = compare_and_swap(a[2], a[6])
+		elif j==3:
+			a[3], a[7] = compare_and_swap(a[3], a[7])
+	for j in prange(4):
+		if j==0:
+			a[0], a[1] = compare_and_swap(a[0], a[1])
+		elif j==1:
+			a[2], a[3] = compare_and_swap(a[2], a[3])
+		elif j==2:
+			a[4], a[5] = compare_and_swap(a[4], a[5])
+		elif j==3:
+			a[6], a[7] = compare_and_swap(a[6], a[7])
+	for i in prange(2):
+		if i==0:
+			a[2], a[4] = compare_and_swap(a[2], a[4])
+		elif i==1:
+			a[3], a[5] = compare_and_swap(a[3], a[5])
+	for j in prange(2):
+		if j==0:
+			a[1], a[4] = compare_and_swap(a[1], a[4])
+		elif j==1:
+			a[3], a[6] = compare_and_swap(a[3], a[6])
+	for i in prange(3):
+		if i==0:
+			a[1], a[2] = compare_and_swap(a[1], a[2])
+		elif i==1:
+			a[3], a[4] = compare_and_swap(a[3], a[4])
+		elif i==2:
+			a[5], a[6] = compare_and_swap(a[5], a[6])
 	return a
 
 @jit(nopython=True)
