@@ -4,17 +4,17 @@ import numpy as np
 from tkinter import filedialog
 from numba import jit, prange
 
-from timeit import default_timer as timer  
-from time import time 
+# from timeit import default_timer as timer  
+# from time import time 
 
-def timer_func(func): 
-    def wrap_func(*args, **kwargs): 
-        t1 = time() 
-        result = func(*args, **kwargs) 
-        t2 = time() 
-        print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
-        return result 
-    return wrap_func 
+# def timer_func(func): 
+#     def wrap_func(*args, **kwargs): 
+#         t1 = time() 
+#         result = func(*args, **kwargs) 
+#         t2 = time() 
+#         print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
+#         return result 
+#     return wrap_func 
 
 
 #%%
@@ -58,10 +58,10 @@ def sort5(a):
 @jit(nopython=True)
 def sort7(a):
 	# Sort network for 7 elements
-	for _ in prange(3):
-		if _==0:
+	for j in prange(3):
+		if j==0:
 			a[0], a[6] = compare_and_swap(a[0], a[6])
-		elif _==1:
+		elif j==1:
 			a[2], a[3] = compare_and_swap(a[2], a[3])
 		else:
 			a[4], a[5] = compare_and_swap(a[4], a[5])
@@ -195,7 +195,7 @@ def get_pixel(stack,z_, y_, x_):
 
 	return stack[zi, yi, xi]
 
-@timer_func
+# @timer_func
 @jit(nopython=True, parallel=True)
 def hybrid_3d_median_filter(stack, include_center_pixel=False):
 	stack = stack.astype(np.uint16)  # ensure input is uint16
@@ -280,11 +280,11 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 
 if __name__ == "__main__":
 
-	# filepath = filedialog.askopenfilename()
-	# with tiff.TiffFile(filepath) as tif:
-	# 	print('Reading image...')
-	# 	image = tif.asarray()
-	# 	print('Image shape:', image.shape)
+	filepath = filedialog.askopenfilename()
+	with tiff.TiffFile(filepath) as tif:
+		print('Reading image...')
+		image = tif.asarray()
+		print('Image shape:', image.shape)
 
 	if len(image.shape) == 3:
 		filtered_stack = hybrid_3d_median_filter(image)
