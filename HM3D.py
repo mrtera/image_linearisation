@@ -7,13 +7,20 @@ from numba import jit, prange
 #%%
 @jit(nopython=True)
 def median(arr):
-	arr_sorted = np.sort(arr)
+	arr_sorted = np.sort(arr).astype(np.uint16)
 	length = len(arr_sorted)
+	# if length % 2 == 0:
+	# 	median_value = arr_sorted[int(length/2-1)]/2+arr_sorted[int(length/2)]/2
+	# else:
+	# 	median_value = arr_sorted[int((length - 1) / 2)]
+
 	if length % 2 == 0:
-		return (arr_sorted[length // 2 - 1] + arr_sorted[length // 2]) / 2.0
+		median_value = (arr_sorted[int(length/2-1)]+arr_sorted[int(length/2)])/2
 	else:
-		return arr_sorted[(length - 1) // 2]
+		median_value = arr_sorted[int((length-1)/2)]
 	
+	return median_value
+
 # Helper to get pixel with edge handling
 @jit(nopython=True)
 def get_pixel(stack,z_, y_, x_):
@@ -38,8 +45,9 @@ def get_pixel(stack,z_, y_, x_):
 
 	return stack[zi, yi, xi]
 	
-@jit(nopython=True, parallel=True)
+@jit(nopython=True)
 def hybrid_3d_median_filter(stack, include_center_pixel=False):
+	stack = stack.astype(np.uint16)  # ensure input is uint16
 	# stack: 3D numpy array (depth, height, width)
 	depth, height, width = stack.shape
 	filtered_stack = np.zeros_like(stack).astype(np.uint16)
@@ -52,8 +60,8 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 		after_z = z + 1
 		if after_z > depth - 1:
 			after_z = depth - 1
-		for y in range(height):
-			for x in range(width):
+		for y in prange(height):
+			for x in prange(width):
 				# 2D PLUS kernel (center row/col) -> use fixed-size numpy arrays for Numba
 				marraythisP = np.zeros(5, dtype=np.uint16)
 				marraythisP[0] = get_pixel(stack, z, y - 1, x)
@@ -102,12 +110,14 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 				marray3Xd[2] = get_pixel(stack, z, y, x)
 				marray3Xd[3] = get_pixel(stack, before_z, y, x + 1)
 				marray3Xd[4] = get_pixel(stack, after_z, y, x - 1)
+
 				# prepare medianarray (7 entries, optionally 8)
 				if include_center_pixel:
 					medianarray = np.zeros(8, dtype=np.uint16)
 					medianarray[7] = get_pixel(stack, z, y, x)
 				else:
 					medianarray = np.zeros(7, dtype=np.uint16)
+					# print(median(marraythisP).dtype, type(median(marraythisP)))	
 				medianarray[0] = median(marraythisX)
 				medianarray[1] = median(marraythisP)
 				medianarray[2] = median(marray3P)
@@ -122,14 +132,11 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 # filepath = filedialog.askopenfilename()
 # with tiff.TiffFile(filepath) as tif:
 # 	print('Reading image...')
-# 	image = np.array(tif.asarray())
+# 	image = tif.asarray()
 # 	# image = image[0]
-	print('Image shape:', image.shape)
+# 	print('Image shape:', image.shape)
 #%%
 # print(image.dtype, image.shape)
 filtered_stack = hybrid_3d_median_filter(image)
 
 tiff.imwrite('denoised_image.tiff', filtered_stack) # save the denoising image as tiff
-
-
-# %%
