@@ -633,12 +633,12 @@ class App:
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
                 if timestep % 50 == 0:
                     print('removed snow in '+str(timestep)+' Volumes')
-
-        print('Creating tif with corrected aspect ratio')
+        if self.rescale_image.get():
+            print('Creating tif with corrected aspect ratio')
         new_shape,out_memmap = self.create_new_array(data)
 
         # process data
-        print('correcting for sin distorsion')
+        print('filtering data')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get() or self.apply_hybrid_median_filter.get():
             start=timer()
             for timestep in range(t_dim):

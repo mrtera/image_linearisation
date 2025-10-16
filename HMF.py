@@ -60,7 +60,7 @@ def get_pixel(stack,z_, y_, x_):
 
 	return stack[zi, yi, xi]
 
-@timer_func
+# @timer_func
 @jit(nopython=True, parallel=True)
 def hybrid_3d_median_filter(stack, include_center_pixel=False):
 	stack = stack.astype(np.uint16)  # ensure input is uint16
