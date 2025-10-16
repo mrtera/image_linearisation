@@ -18,10 +18,32 @@ def timer_func(func):
 
 
 #%%
+
+#playing with parallelized sort networks
+@jit(nopython=True)
+def sort5(a):
+	# Sort network for 5 elements
+	a[0], a[1] = min(a[0], a[1]), max(a[0], a[1])
+	a[3], a[4] = min(a[3], a[4]), max(a[3], a[4])
+	a[2], a[4] = min(a[2], a[4]), max(a[2], a[4])
+	a[2], a[3] = min(a[2], a[3]), max(a[2], a[3])
+	a[0], a[3] = min(a[0], a[3]), max(a[0], a[3])
+	a[1], a[4] = min(a[1], a[4]), max(a[1], a[4])
+	a[1], a[2] = min(a[1], a[2]), max(a[1], a[2])
+	a[2], a[3] = min(a[2], a[3]), max(a[2], a[3])
+	return a
+
+
 @jit(nopython=True)
 def median(arr):
-	arr_sorted = np.sort(arr).astype(np.uint16)
-	length = len(arr_sorted)
+	length = len(arr)
+	if length == 5:
+		arr_sorted = sort5(arr)
+		# arr_sorted = np.sort(arr).astype(np.uint16)
+
+	else:
+		arr_sorted = np.sort(arr).astype(np.uint16)
+
 	if length % 2 == 0:
 		median_value = int(arr_sorted[int(length/2-1)]/2+arr_sorted[int(length/2)]/2)
 	else:
@@ -60,7 +82,7 @@ def get_pixel(stack,z_, y_, x_):
 
 	return stack[zi, yi, xi]
 
-# @timer_func
+@timer_func
 @jit(nopython=True, parallel=True)
 def hybrid_3d_median_filter(stack, include_center_pixel=False):
 	stack = stack.astype(np.uint16)  # ensure input is uint16
@@ -145,7 +167,7 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 
 if __name__ == "__main__":
 
-	filepath = filedialog.askopenfilename()
+	# filepath = filedialog.askopenfilename()
 	with tiff.TiffFile(filepath) as tif:
 		print('Reading image...')
 		image = tif.asarray()
