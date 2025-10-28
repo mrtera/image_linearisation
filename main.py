@@ -740,7 +740,7 @@ class App:
             data = np.swapaxes(data,0,1)
 
         if self.apply_hybrid_median_filter.get():
-            data = hybrid_3d_median_filter(data)
+            data = hybrid_3d_median_filter(data,False)
         return data
 
     def process_2D(self,data,shape_array):

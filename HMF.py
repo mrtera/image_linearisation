@@ -267,6 +267,7 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 					medianarray[7] = get_pixel(stack, z, y, x)
 				else:
 					medianarray = np.zeros(7, dtype=np.uint16)
+					
 				medianarray[0] = median(marraythisX)
 				medianarray[1] = median(marraythisP)
 				medianarray[2] = median(marray3P)
