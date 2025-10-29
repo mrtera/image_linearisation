@@ -222,10 +222,10 @@ def median(arr):
 	length = len(arr)
 
 	match length:
-		case 3:
-			arr_sorted = sort3(arr)
 		case 5:
 			arr_sorted = sort5(arr)
+		case 8:
+			arr_sorted = sort8(arr)
 		case 9:
 			arr_sorted = sort9(arr)
 
@@ -319,7 +319,7 @@ def hybrid_2d_median_filter(stack, include_center_pixel=True, filtersize=3):
 			if filtersize == 3:
 				marraythisX = init_arrays(5)
 			if filtersize == 5:
-				marraythisX = init_arrays(9)
+				marraythisX = •(9)
 				marraythisX[5] = get_pixel_2D(stack, y - 2, x - 2)
 				marraythisX[6] = get_pixel_2D(stack, y - 2, x + 2)
 				marraythisX[7] = get_pixel_2D(stack, y + 2, x - 2)
@@ -428,19 +428,19 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 
 if __name__ == "__main__":
 
-	# filepath = filedialog.askopenfilename()
-	# with tiff.TiffFile(filepath) as tif:
-	# 	print('Reading image...')
-	# 	image = tif.asarray()
-	# 	print('Image shape:', image.shape)
+	filepath = filedialog.askopenfilename()
+	with tiff.TiffFile(filepath) as tif:
+		print('Reading image...')
+		image = tif.asarray()
+		print('Image shape:', image.shape)
 
 	if len(image.shape) ==2:
-		filtered_image = hybrid_2d_median_filter(image, include_center_pixel=True, filtersize=5)
-		tiff.imwrite('denoised_image.tiff', filtered_image, 
-				compression='zlib',
-				compressionargs={'level': 6},
-				photometric='minisblack',
-				metadata={'axes': 'YX'})
+		filtered_image = hybrid_2d_median_filter(image, include_center_pixel=True, filtersize=3)
+		# tiff.imwrite('denoised_image.tiff', filtered_image, 
+		# 		compression='zlib',
+		# 		compressionargs={'level': 6},
+		# 		photometric='minisblack',
+		# 		metadata={'axes': 'YX'})
 
 	if len(image.shape) == 3:
 		filtered_stack = hybrid_3d_median_filter(image)

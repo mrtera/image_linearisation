@@ -759,7 +759,7 @@ class App:
             remapped_image = np.swapaxes(remapped_image,0,1)
         
         if self.apply_hybrid_median_filter.get():
-            remapped_image = hybrid_2d_median_filter(remapped_image,True,5)
+            remapped_image = hybrid_2d_median_filter(remapped_image,include_center_pixel=False,filtersize=5)
         return remapped_image
 
 ### Snow removal ###
