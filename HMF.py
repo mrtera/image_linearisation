@@ -4,20 +4,18 @@ import numpy as np
 from tkinter import filedialog
 from numba import jit, prange
 
-# from timeit import default_timer as timer  
-# from time import time 
+from timeit import default_timer as timer  
+from time import time 
 
-# def timer_func(func): 
-#     def wrap_func(*args, **kwargs): 
-#         t1 = time() 
-#         result = func(*args, **kwargs) 
-#         t2 = time() 
-#         print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
-#         return result 
-#     return wrap_func 
+def timer_func(func): 
+    def wrap_func(*args, **kwargs): 
+        t1 = time() 
+        result = func(*args, **kwargs) 
+        t2 = time() 
+        print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
+        return result 
+    return wrap_func 
 
-
-#%%
 #playing with parallelized sort networks
 @jit(nopython=True)
 def compare_and_swap(i, j):
@@ -26,13 +24,13 @@ def compare_and_swap(i, j):
 	else:
 		return i,j
 	
-@jit(nopython=True)
-def sort3(a):
-	a[0], a[2] = compare_and_swap(a[0], a[2])
-	a[0], a[1] = compare_and_swap(a[0], a[1])
-	a[1], a[2] = compare_and_swap(a[1], a[2])
-	return a
 
+# @jit(nopython=True)
+# def sort3(a):
+# 	a[0], a[2] = compare_and_swap(a[0], a[2])
+# 	a[0], a[1] = compare_and_swap(a[0], a[1])
+# 	a[1], a[2] = compare_and_swap(a[1], a[2])
+# 	return a
 
 @jit(nopython=True)
 def sort5(a):
@@ -153,26 +151,95 @@ def sort8(a):
 	return a
 
 @jit(nopython=True)
+def sort9(a):
+	for j in prange(4):
+		if j==0:
+			a[0], a[3] = compare_and_swap(a[0], a[3])
+		elif j==1:
+			a[1], a[7] = compare_and_swap(a[1], a[7])
+		elif j==2:
+			a[2], a[5] = compare_and_swap(a[2], a[5])
+		else:
+			a[4], a[8] = compare_and_swap(a[4], a[8])
+	for j in prange(4):
+		if j==0:
+			a[0], a[7] = compare_and_swap(a[0], a[7])
+		elif j==1:
+			a[2], a[4] = compare_and_swap(a[2], a[4])
+		elif j==2:
+			a[3], a[8] = compare_and_swap(a[3], a[8])
+		else:
+			a[5], a[6] = compare_and_swap(a[5], a[6])
+	for j in prange(4):
+		if j==0:
+			a[0], a[2] = compare_and_swap(a[0], a[2])
+		elif j==1:
+			a[1], a[3] = compare_and_swap(a[1], a[3])
+		elif j==2:
+			a[4], a[5] = compare_and_swap(a[4], a[5])
+		else:
+			a[7], a[8] = compare_and_swap(a[7], a[8])
+	for i in prange(3):
+		if i==0:
+			a[1], a[4] = compare_and_swap(a[1], a[4])
+		elif i==1:
+			a[3], a[6] = compare_and_swap(a[3], a[6])
+		else:
+			a[5], a[7] = compare_and_swap(a[5], a[7])
+	for j in prange(4):
+		if j==0:
+			a[0], a[1] = compare_and_swap(a[0], a[1])
+		elif j==1:
+			a[2], a[4] = compare_and_swap(a[2], a[4])
+		elif j==2:
+			a[3], a[5] = compare_and_swap(a[3], a[5])
+		else:
+			a[6], a[8] = compare_and_swap(a[6], a[8])
+	for i in prange(3):
+		if i==0:
+			a[2], a[3] = compare_and_swap(a[2], a[3])
+		elif i==1:
+			a[4], a[5] = compare_and_swap(a[4], a[5])
+		else:
+			a[6], a[7] = compare_and_swap(a[6], a[7])
+	for j in prange(3):
+		if j==0:
+			a[1], a[2] = compare_and_swap(a[1], a[2])
+		elif j==1:
+			a[3], a[4] = compare_and_swap(a[3], a[4])
+		else:
+			a[5], a[6] = compare_and_swap(a[5], a[6])
+	return a
+
+
+@jit(nopython=True)
 def median(arr):
 	length = len(arr)
-	match length:
-		case 5:
-			arr_sorted = sort5(arr)
-		case 7:
-			arr_sorted = sort7(arr)
-		case 8:
-			arr_sorted = sort8(arr)
+	if length == 5:
+		arr_sorted = sort5(arr)
+	elif length == 7:
+		arr_sorted = sort7(arr)
+	elif length == 8:
+		arr_sorted = sort8(arr)
+	elif length == 20:
+		pass
+
+
+
+	# match length:
+	# 	case 5:
+	# 		arr_sorted = sort5(arr)
+	# 	case 7:
+	# 		arr_sorted = sort7(arr)
+	# 	case 8:
+	# 		arr_sorted = sort8(arr)
+			
 		
 	if length % 2 == 0:
 		median_value = int(arr_sorted[int(length/2-1)]/2+arr_sorted[int(length/2)]/2)
 	else:
 		median_value = int(arr_sorted[int((length - 1) / 2)])
 
-	# if length % 2 == 0:
-	# 	median_value = (arr_sorted[int(length/2-1)]+arr_sorted[int(length/2)])/2
-	# else:
-	# 	median_value = arr_sorted[int((length-1)/2)]
-	
 	return median_value
 
 # Helpers to get pixel with edge handling
@@ -203,25 +270,13 @@ def get_pixel_3D(stack,z_, y_, x_):
 	elif z_ > stack.shape[0] - 1:
 		z_ = stack.shape[0] - 1
 
-	yi, xi = get_pixel_2D(stack[z_], y_, x_)
-
-	# if y_ < 0:
-	# 	y_ = 0
-	# elif y_ > stack.shape[1] - 1:
-	# 	y_ = stack.shape[1] - 1
-
-	# if x_ < 0:
-	# 	x_ = 0
-	# elif x_ > stack.shape[2] - 1:
-	# 	x_ = stack.shape[2] - 1
-
 	zi = int(z_)
 
-	return stack[zi, yi, xi]
+	return get_pixel_2D(stack[zi], y_, x_)
 
-
+@timer_func
 @jit(nopython=True, parallel=True)
-def hybrid_2d_median_filter(stack, include_center_pixel=False):
+def hybrid_2d_median_filter(stack, include_center_pixel=True, filtersize=3):
 	stack = stack.astype(np.uint16)  # ensure input is uint16
 	height, width = stack.shape
 	filtered_stack = np.zeros_like(stack).astype(np.uint16)
@@ -229,19 +284,36 @@ def hybrid_2d_median_filter(stack, include_center_pixel=False):
 	for y in prange(height):
 		for x in prange(width):
 			# 2D PLUS kernel (center row/col) -> use fixed-size numpy arrays for Numba
-			marraythisP = np.zeros(5, dtype=np.uint16)
+			if filtersize == 3:
+				marraythisP = np.zeros(5, dtype=np.uint16)
+			if filtersize == 5:
+				marraythisP = np.zeros(9, dtype=np.uint16)
 			marraythisP[0] = get_pixel_2D(stack, y - 1, x)
 			marraythisP[1] = get_pixel_2D(stack, y, x - 1)
 			marraythisP[2] = get_pixel_2D(stack, y, x)
 			marraythisP[3] = get_pixel_2D(stack, y, x + 1)
 			marraythisP[4] = get_pixel_2D(stack, y + 1, x)
+			if filtersize == 5:
+				marraythisP[5] = get_pixel_2D(stack, y - 2, x)
+				marraythisP[6] = get_pixel_2D(stack, y + 2, x)
+				marraythisP[7] = get_pixel_2D(stack, y, x + 2)
+				marraythisP[8] = get_pixel_2D(stack, y, x - 2)
+
 			# 2D X kernel
-			marraythisX = np.zeros(5, dtype=np.uint16)
+			if filtersize == 3:
+				marraythisX = np.zeros(5, dtype=np.uint16)
+			if filtersize == 5:
+				marraythisX = np.zeros(9, dtype=np.uint16)
 			marraythisX[0] = get_pixel_2D(stack, y - 1, x - 1)
 			marraythisX[1] = get_pixel_2D(stack, y - 1, x + 1)
 			marraythisX[2] = get_pixel_2D(stack, y, x)
 			marraythisX[3] = get_pixel_2D(stack, y + 1, x - 1)
 			marraythisX[4] = get_pixel_2D(stack, y + 1, x + 1)
+			if filtersize == 5:
+				marraythisX[5] = get_pixel_2D(stack, y - 2, x - 2)
+				marraythisX[6] = get_pixel_2D(stack, y - 2, x + 2)
+				marraythisX[7] = get_pixel_2D(stack, y + 2, x - 2)
+				marraythisX[8] = get_pixel_2D(stack, y + 2, x + 2)
 			# prepare medianarray (2 entries, optionally 3)
 			if include_center_pixel:
 				medianarray = np.zeros(3, dtype=np.uint16)
@@ -340,27 +412,35 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 
 if __name__ == "__main__":
 
-	filepath = filedialog.askopenfilename()
-	with tiff.TiffFile(filepath) as tif:
-		print('Reading image...')
-		image = tif.asarray()
-		print('Image shape:', image.shape)
+	# filepath = filedialog.askopenfilename()
+	# with tiff.TiffFile(filepath) as tif:
+	# 	print('Reading image...')
+	# 	image = tif.asarray()
+	# 	print('Image shape:', image.shape)
 
-	if len(image.shape) == 3:
-		filtered_stack = hybrid_3d_median_filter(image)
-		tiff.imwrite('denoised_image.tiff', filtered_stack, 
+	if len(image.shape) ==2:
+		filtered_image = hybrid_2d_median_filter(image, include_center_pixel=False, filtersize=5)
+		tiff.imwrite('denoised_image.tiff', filtered_image, 
 				compression='zlib',
 				compressionargs={'level': 6},
 				photometric='minisblack',
-				metadata={'axes': 'ZYX'})
+				metadata={'axes': 'YX'})
+
+	if len(image.shape) == 3:
+		filtered_stack = hybrid_3d_median_filter(image)
+		# tiff.imwrite('denoised_image.tiff', filtered_stack, 
+		# 		compression='zlib',
+		# 		compressionargs={'level': 6},
+		# 		photometric='minisblack',
+		# 		metadata={'axes': 'ZYX'})
 	elif len(image.shape) == 4:
 		for volume in range(image.shape[0]):
 			print(f'Processing volume {volume+1}/{image.shape[0]}')
 			image[volume] = hybrid_3d_median_filter(image[volume])
-		tiff.imwrite('denoised_image.tiff', image,
-				compression='zlib',
-				compressionargs={'level': 6},
-				photometric='minisblack',
-				metadata={'axes': 'TZYX'})
+		# tiff.imwrite('denoised_image.tiff', image,
+		# 		compression='zlib',
+		# 		compressionargs={'level': 6},
+		# 		photometric='minisblack',
+		# 		metadata={'axes': 'TZYX'})
 
 # %%

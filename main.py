@@ -714,10 +714,7 @@ class App:
             shape_array = np.swapaxes(shape_array,1,2)
             data = np.swapaxes(data,1,2)
 
-            if FDML:
-                remapped_data = remapping3D(data,shape_array,self.upsampling_factor,FDML=True)
-            else:
-                remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor,FDML)
             
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
@@ -744,21 +741,25 @@ class App:
         return data
 
     def process_2D(self,data,shape_array):
-        if not self.do_x_correction.get() and not self.do_y_correction.get():
+        x = self.do_x_correction.get()
+        FDML = self.do_FDML_correction.get()
+        y = self.do_y_correction.get()
+
+        if not x and not FDML and not y:
             remapped_image = data
 
-        if self.do_y_correction.get():
+        if y:
             remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
             data=remapped_image
             
-        if self.do_x_correction.get() or self.do_FDML_correction.get():
+        if x or FDML:
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_image = np.swapaxes(data,0,1)
-            if self.do_FDML_correction.get():
-                remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor,FDML=True)
-            else:
-                remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor)
+            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor,FDML)
             remapped_image = np.swapaxes(remapped_image,0,1)
+        
+        if self.apply_hybrid_median_filter.get():
+            remapped_image = hybrid_2d_median_filter(remapped_image,True,5)
         return remapped_image
 
 ### Snow removal ###
@@ -891,7 +892,6 @@ class App:
         self.filename = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         if self.apply_hybrid_median_filter.get():
             self.filename = self.filename.replace('.ome.tif','_hmf.ome.tif')
-            print(self.filename)
 
     def save_image(self,data):
         print('compressing and saving data')
