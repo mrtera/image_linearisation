@@ -319,7 +319,7 @@ def hybrid_2d_median_filter(stack, include_center_pixel=True, filtersize=3):
 			if filtersize == 3:
 				marraythisX = init_arrays(5)
 			if filtersize == 5:
-				marraythisX = init_arrays(9)
+				marraythisX = •(9)
 				marraythisX[5] = get_pixel_2D(stack, y - 2, x - 2)
 				marraythisX[6] = get_pixel_2D(stack, y - 2, x + 2)
 				marraythisX[7] = get_pixel_2D(stack, y + 2, x - 2)
