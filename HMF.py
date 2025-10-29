@@ -25,6 +25,13 @@ def compare_and_swap(i, j):
 		return j,i
 	else:
 		return i,j
+	
+@jit(nopython=True)
+def sort3(a):
+	a[0], a[2] = compare_and_swap(a[0], a[2])
+	a[0], a[1] = compare_and_swap(a[0], a[1])
+	a[1], a[2] = compare_and_swap(a[1], a[2])
+	return a
 
 
 @jit(nopython=True)
@@ -52,7 +59,6 @@ def sort5(a):
 			a[3], a[4] = compare_and_swap(a[3], a[4])
 		
 	a[2], a[3] = compare_and_swap(a[2], a[3])
-	# print(a)
 	return a
 
 @jit(nopython=True)
@@ -169,9 +175,27 @@ def median(arr):
 	
 	return median_value
 
-# Helper to get pixel with edge handling
+# Helpers to get pixel with edge handling
 @jit(nopython=True)
-def get_pixel(stack,z_, y_, x_):
+def get_pixel_2D(stack, y_, x_):
+
+	if y_ < 0:
+		y_ = 0
+	elif y_ > stack.shape[0] - 1:
+		y_ = stack.shape[0] - 1
+
+	if x_ < 0:
+		x_ = 0
+	elif x_ > stack.shape[1] - 1:
+		x_ = stack.shape[1] - 1
+
+	yi = int(y_)
+	xi = int(x_)	
+
+	return stack[yi, xi]
+
+@jit(nopython=True)
+def get_pixel_3D(stack,z_, y_, x_):
 	# ensure indices are integers and clamp to valid ranges
 
 	if z_ < 0:
@@ -179,26 +203,61 @@ def get_pixel(stack,z_, y_, x_):
 	elif z_ > stack.shape[0] - 1:
 		z_ = stack.shape[0] - 1
 
-	if y_ < 0:
-		y_ = 0
-	elif y_ > stack.shape[1] - 1:
-		y_ = stack.shape[1] - 1
+	yi, xi = get_pixel_2D(stack[z_], y_, x_)
 
-	if x_ < 0:
-		x_ = 0
-	elif x_ > stack.shape[2] - 1:
-		x_ = stack.shape[2] - 1
+	# if y_ < 0:
+	# 	y_ = 0
+	# elif y_ > stack.shape[1] - 1:
+	# 	y_ = stack.shape[1] - 1
+
+	# if x_ < 0:
+	# 	x_ = 0
+	# elif x_ > stack.shape[2] - 1:
+	# 	x_ = stack.shape[2] - 1
 
 	zi = int(z_)
-	yi = int(y_)
-	xi = int(x_)	
 
 	return stack[zi, yi, xi]
+
+
+@jit(nopython=True, parallel=True)
+def hybrid_2d_median_filter(stack, include_center_pixel=False):
+	stack = stack.astype(np.uint16)  # ensure input is uint16
+	height, width = stack.shape
+	filtered_stack = np.zeros_like(stack).astype(np.uint16)
+
+	for y in prange(height):
+		for x in prange(width):
+			# 2D PLUS kernel (center row/col) -> use fixed-size numpy arrays for Numba
+			marraythisP = np.zeros(5, dtype=np.uint16)
+			marraythisP[0] = get_pixel_2D(stack, y - 1, x)
+			marraythisP[1] = get_pixel_2D(stack, y, x - 1)
+			marraythisP[2] = get_pixel_2D(stack, y, x)
+			marraythisP[3] = get_pixel_2D(stack, y, x + 1)
+			marraythisP[4] = get_pixel_2D(stack, y + 1, x)
+			# 2D X kernel
+			marraythisX = np.zeros(5, dtype=np.uint16)
+			marraythisX[0] = get_pixel_2D(stack, y - 1, x - 1)
+			marraythisX[1] = get_pixel_2D(stack, y - 1, x + 1)
+			marraythisX[2] = get_pixel_2D(stack, y, x)
+			marraythisX[3] = get_pixel_2D(stack, y + 1, x - 1)
+			marraythisX[4] = get_pixel_2D(stack, y + 1, x + 1)
+			# prepare medianarray (2 entries, optionally 3)
+			if include_center_pixel:
+				medianarray = np.zeros(3, dtype=np.uint16)
+				medianarray[2] = get_pixel_2D(stack, y, x)
+			else:
+				medianarray = np.zeros(2, dtype=np.uint16)
+			medianarray[0] = median(marraythisX)
+			medianarray[1] = median(marraythisP)
+			filtered_stack[y, x] = median(medianarray)
+	return filtered_stack
+		
 
 # @timer_func
 @jit(nopython=True, parallel=True)
 def hybrid_3d_median_filter(stack, include_center_pixel=False):
-	stack = stack.astype(np.uint16)  # ensure input is uint16
+	stack = stack.astype(np.uint16) 
 	depth, height, width = stack.shape
 	filtered_stack = np.zeros_like(stack).astype(np.uint16)
 	
@@ -214,57 +273,57 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 			for x in prange(width):
 				# 2D PLUS kernel (center row/col) -> use fixed-size numpy arrays for Numba
 				marraythisP = np.zeros(5, dtype=np.uint16)
-				marraythisP[0] = get_pixel(stack, z, y - 1, x)
-				marraythisP[1] = get_pixel(stack, z, y, x - 1)
-				marraythisP[2] = get_pixel(stack, z, y, x)
-				marraythisP[3] = get_pixel(stack, z, y, x + 1)
-				marraythisP[4] = get_pixel(stack, z, y + 1, x)
+				marraythisP[0] = get_pixel_3D(stack, z, y - 1, x)
+				marraythisP[1] = get_pixel_3D(stack, z, y, x - 1)
+				marraythisP[2] = get_pixel_3D(stack, z, y, x)
+				marraythisP[3] = get_pixel_3D(stack, z, y, x + 1)
+				marraythisP[4] = get_pixel_3D(stack, z, y + 1, x)
 				# 2D X kernel
 				marraythisX = np.zeros(5, dtype=np.uint16)
-				marraythisX[0] = get_pixel(stack, z, y - 1, x - 1)
-				marraythisX[1] = get_pixel(stack, z, y - 1, x + 1)
-				marraythisX[2] = get_pixel(stack, z, y, x)
-				marraythisX[3] = get_pixel(stack, z, y + 1, x - 1)
-				marraythisX[4] = get_pixel(stack, z, y + 1, x + 1)
+				marraythisX[0] = get_pixel_3D(stack, z, y - 1, x - 1)
+				marraythisX[1] = get_pixel_3D(stack, z, y - 1, x + 1)
+				marraythisX[2] = get_pixel_3D(stack, z, y, x)
+				marraythisX[3] = get_pixel_3D(stack, z, y + 1, x - 1)
+				marraythisX[4] = get_pixel_3D(stack, z, y + 1, x + 1)
 				# 3D PLUS kernel
 				marray3P = np.zeros(7, dtype=np.uint16)
-				marray3P[0] = get_pixel(stack, before_z, y, x)
-				marray3P[1] = get_pixel(stack, z, y - 1, x)
-				marray3P[2] = get_pixel(stack, z, y, x - 1)
-				marray3P[3] = get_pixel(stack, z, y, x)
-				marray3P[4] = get_pixel(stack, z, y, x + 1)
-				marray3P[5] = get_pixel(stack, z, y + 1, x)
-				marray3P[6] = get_pixel(stack, after_z, y, x)
+				marray3P[0] = get_pixel_3D(stack, before_z, y, x)
+				marray3P[1] = get_pixel_3D(stack, z, y - 1, x)
+				marray3P[2] = get_pixel_3D(stack, z, y, x - 1)
+				marray3P[3] = get_pixel_3D(stack, z, y, x)
+				marray3P[4] = get_pixel_3D(stack, z, y, x + 1)
+				marray3P[5] = get_pixel_3D(stack, z, y + 1, x)
+				marray3P[6] = get_pixel_3D(stack, after_z, y, x)
 				# 3D X kernels
 				marray3Xa = np.zeros(5, dtype=np.uint16)
-				marray3Xa[0] = get_pixel(stack, before_z, y - 1, x - 1)
-				marray3Xa[1] = get_pixel(stack, after_z, y + 1, x + 1)
-				marray3Xa[2] = get_pixel(stack, z, y, x)
-				marray3Xa[3] = get_pixel(stack, before_z, y + 1, x - 1)
-				marray3Xa[4] = get_pixel(stack, after_z, y - 1, x + 1)
+				marray3Xa[0] = get_pixel_3D(stack, before_z, y - 1, x - 1)
+				marray3Xa[1] = get_pixel_3D(stack, after_z, y + 1, x + 1)
+				marray3Xa[2] = get_pixel_3D(stack, z, y, x)
+				marray3Xa[3] = get_pixel_3D(stack, before_z, y + 1, x - 1)
+				marray3Xa[4] = get_pixel_3D(stack, after_z, y - 1, x + 1)
 				marray3Xb = np.zeros(5, dtype=np.uint16)
-				marray3Xb[0] = get_pixel(stack, before_z, y - 1, x)
-				marray3Xb[1] = get_pixel(stack, after_z, y + 1, x)
-				marray3Xb[2] = get_pixel(stack, z, y, x)
-				marray3Xb[3] = get_pixel(stack, before_z, y + 1, x)
-				marray3Xb[4] = get_pixel(stack, after_z, y - 1, x)
+				marray3Xb[0] = get_pixel_3D(stack, before_z, y - 1, x)
+				marray3Xb[1] = get_pixel_3D(stack, after_z, y + 1, x)
+				marray3Xb[2] = get_pixel_3D(stack, z, y, x)
+				marray3Xb[3] = get_pixel_3D(stack, before_z, y + 1, x)
+				marray3Xb[4] = get_pixel_3D(stack, after_z, y - 1, x)
 				marray3Xc = np.zeros(5, dtype=np.uint16)
-				marray3Xc[0] = get_pixel(stack, before_z, y - 1, x + 1)
-				marray3Xc[1] = get_pixel(stack, after_z, y + 1, x - 1)
-				marray3Xc[2] = get_pixel(stack, z, y, x)
-				marray3Xc[3] = get_pixel(stack, before_z, y + 1, x + 1)
-				marray3Xc[4] = get_pixel(stack, after_z, y - 1, x - 1)
+				marray3Xc[0] = get_pixel_3D(stack, before_z, y - 1, x + 1)
+				marray3Xc[1] = get_pixel_3D(stack, after_z, y + 1, x - 1)
+				marray3Xc[2] = get_pixel_3D(stack, z, y, x)
+				marray3Xc[3] = get_pixel_3D(stack, before_z, y + 1, x + 1)
+				marray3Xc[4] = get_pixel_3D(stack, after_z, y - 1, x - 1)
 				marray3Xd = np.zeros(5, dtype=np.uint16)
-				marray3Xd[0] = get_pixel(stack, before_z, y, x - 1)
-				marray3Xd[1] = get_pixel(stack, after_z, y, x + 1)
-				marray3Xd[2] = get_pixel(stack, z, y, x)
-				marray3Xd[3] = get_pixel(stack, before_z, y, x + 1)
-				marray3Xd[4] = get_pixel(stack, after_z, y, x - 1)
+				marray3Xd[0] = get_pixel_3D(stack, before_z, y, x - 1)
+				marray3Xd[1] = get_pixel_3D(stack, after_z, y, x + 1)
+				marray3Xd[2] = get_pixel_3D(stack, z, y, x)
+				marray3Xd[3] = get_pixel_3D(stack, before_z, y, x + 1)
+				marray3Xd[4] = get_pixel_3D(stack, after_z, y, x - 1)
 
 				# prepare medianarray (7 entries, optionally 8)
 				if include_center_pixel:
 					medianarray = np.zeros(8, dtype=np.uint16)
-					medianarray[7] = get_pixel(stack, z, y, x)
+					medianarray[7] = get_pixel_3D(stack, z, y, x)
 				else:
 					medianarray = np.zeros(7, dtype=np.uint16)
 					

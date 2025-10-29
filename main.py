@@ -886,13 +886,19 @@ class App:
         if self.flatten4D.get():
             axes = 'TYX'
         return axes
+    
+    def set_filename(self):
+        self.filename = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
+        if self.apply_hybrid_median_filter.get():
+            self.filename = self.filename.replace('.ome.tif','_hmf.ome.tif')
+            print(self.filename)
 
     def save_image(self,data):
         print('compressing and saving data')
-        outfile = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         axes = self.get_axes()
+        self.set_filename()
         tiff.imwrite(
-            outfile,
+            self.filename,
             data,
             ome=TRUE,
             bigtiff=TRUE,
@@ -910,10 +916,10 @@ class App:
         print('attempting data compression')
         try:
             with tiff.TiffFile(path) as tif:
-
                 data = tif.asarray()
                 axes = self.get_axes()
-                tiff.imwrite(self.filename.replace('.ome.tif','_processed.ome.tif'),
+                self.set_filename()
+                tiff.imwrite(self.filename,
                     data,
                     ome=TRUE,
                     bigtiff=TRUE,
