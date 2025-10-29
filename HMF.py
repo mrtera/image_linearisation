@@ -229,8 +229,6 @@ def median(arr):
 		case 9:
 			arr_sorted = sort9(arr)
 
-			
-		
 	if length % 2 == 0:
 		median_value = int(arr_sorted[int(length/2-1)]/2+arr_sorted[int(length/2)]/2)
 	else:
@@ -272,6 +270,8 @@ def get_pixel_3D(stack,z_, y_, x_):
 
 @jit(nopython=True)
 def init_arrays(size):
+	# Code fails when using more than 3 sorting networks. workaround is to initialize all median arrays
+	# as 5,7 or 9 length zero arrays and add 2**16-1 values to shift the median to the center in evaluation.
 	if size == 2:
 		arr= np.zeros(8, dtype=np.uint16)
 		arr[7] = 2**16 - 1
