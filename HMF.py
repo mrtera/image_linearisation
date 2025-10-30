@@ -291,7 +291,6 @@ def init_arrays(size):
 		arr= np.zeros(9, dtype=np.uint16)
 	return arr
 
-@timer_func
 @jit(nopython=True, parallel=True)
 def hybrid_2d_median_filter(stack, include_center_pixel=True, filtersize=3):
 	stack = stack.astype(np.uint16)  # ensure input is uint16
@@ -319,7 +318,7 @@ def hybrid_2d_median_filter(stack, include_center_pixel=True, filtersize=3):
 			if filtersize == 3:
 				marraythisX = init_arrays(5)
 			if filtersize == 5:
-				marraythisX = •(9)
+				marraythisX = init_arrays(9)
 				marraythisX[5] = get_pixel_2D(stack, y - 2, x - 2)
 				marraythisX[6] = get_pixel_2D(stack, y - 2, x + 2)
 				marraythisX[7] = get_pixel_2D(stack, y + 2, x - 2)

@@ -186,8 +186,8 @@ class App:
         current_row += 1
 
         self.flatten4D = BooleanVar(value=False)   
-        flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 3Dt to 2Dt', variable=self.flatten4D)
-        flatten4D_checkbox.grid(row=current_row, column=0, columnspan=2)
+        flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 4D to 2Dt', variable=self.flatten4D)
+        flatten4D_checkbox.grid(row=current_row, column=0, columnspan=1)
 
         label = Label(settings_frame, text='Upsampleing factor:')
         label.grid(row=current_row, column=1, columnspan=2)
@@ -205,9 +205,19 @@ class App:
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
-        self.apply_hybrid_median_filter = BooleanVar(value=False)
-        apply_hybrid_median_filter_checkbox = Checkbutton(settings_frame, text='apply hybrid median filter', variable=self.apply_hybrid_median_filter)
-        apply_hybrid_median_filter_checkbox.grid(row=current_row, column=1)
+        self.hybrid_median_filter = BooleanVar(value=False)
+        apply_hybrid_median_filter_checkbox = Checkbutton(settings_frame, text='hybrid median ', variable=self.hybrid_median_filter)
+        apply_hybrid_median_filter_checkbox.grid(row=current_row, column=0)
+
+        self.include_center_pixel = BooleanVar(value=False)
+        include_center_pixel_checkbox = Checkbutton(settings_frame, text='center pixel', variable=self.include_center_pixel)
+        include_center_pixel_checkbox.grid(row=current_row, column=1)
+
+        label = Label(settings_frame, text='filter size:')
+        label.grid(row=current_row, column=2)
+        self.filter_size = IntVar(value=3)
+        self.filter_size_spinbox = Spinbox(settings_frame, textvariable=self.filter_size, from_=3, to=5, width=4, increment=2)
+        self.filter_size_spinbox.grid(row=current_row, column=3)
         current_row += 1
 
         self.is_single_volume_var = BooleanVar(value=False)
@@ -527,26 +537,26 @@ class App:
 
     def load_ird(self, sections, snow_value=0, in_memmap=False, is2Dt=False):
         import napari_streamin.arrays
-        # import imaging # needed to change parameters such as undistort algorithm or sample processor
+        import imaging # needed to change parameters such as undistort algorithm or sample processor
         match is2Dt:
             case False:
                 irdata = napari_streamin.arrays.VolumeArray(self.provider)
                 self.axes = 'QQYX'
-                # try:
-                    # irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
-                    # irdata.undistort_y = imaging.ImageGenerator.Undistort__None
-                # except:
-                    # print('a new streamin version is avalible')
+                try:
+                    irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
+                    irdata.undistort_y = imaging.ImageGenerator.Undistort__None
+                except:
+                    print('a new streamin version is avalible')
 
             case True:
                 irdata = napari_streamin.arrays.ImageArray(self.provider)
                 irdata.image_averaging = self.ird_2d_averaging.get()
                 self.axes = 'QYX'
-                # try:
-                    # irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
-                    # irdata.undistort_y = imaging.ImageGenerator.Undistort__None
-                # except:
-                    # print('a new streamin version is avalible')
+                try:
+                    irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
+                    irdata.undistort_y = imaging.ImageGenerator.Undistort__None
+                except:
+                    print('a new streamin version is avalible')
 
 
         tif_shape = irdata.shape
@@ -639,7 +649,7 @@ class App:
 
         # process data
         print('filtering data')
-        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get() or self.apply_hybrid_median_filter.get():
+        if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get() or self.hybrid_median_filter.get():
             start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
@@ -736,8 +746,8 @@ class App:
             data=remapped_data
             data = np.swapaxes(data,0,1)
 
-        if self.apply_hybrid_median_filter.get():
-            data = hybrid_3d_median_filter(data,False)
+        if self.hybrid_median_filter.get():
+            data = hybrid_3d_median_filter(data,include_center_pixel=self.include_center_pixel.get())
         return data
 
     def process_2D(self,data,shape_array):
@@ -758,8 +768,8 @@ class App:
             remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor,FDML)
             remapped_image = np.swapaxes(remapped_image,0,1)
         
-        if self.apply_hybrid_median_filter.get():
-            remapped_image = hybrid_2d_median_filter(remapped_image,include_center_pixel=False,filtersize=5)
+        if self.hybrid_median_filter.get():
+            remapped_image = hybrid_2d_median_filter(remapped_image,include_center_pixel=self.include_center_pixel.get(),filtersize=self.filter_size.get())
         return remapped_image
 
 ### Snow removal ###
@@ -889,9 +899,37 @@ class App:
         return axes
     
     def set_filename(self):
+        fdml = self.do_FDML_correction.get()
+        x_corr = self.do_x_correction.get()
+        y_corr = self.do_y_correction.get()
+        z_corr = self.do_z_correction.get()
+        rescale = self.rescale_image.get()
+
+        hmf = self.hybrid_median_filter.get()
+        filter_size = self.filter_size.get()
+        center_pixel = self.include_center_pixel.get()
+
+        processing = ([fdml,x_corr,y_corr,z_corr,rescale])
+
+        if hmf:
+            if self.is_single_frame or self.is_2D_video:
+                if center_pixel:
+                    hmfString=f'_hmf-{filter_size}x{filter_size}+'
+                else:
+                    hmfString=f'_hmf-{filter_size}x{filter_size}-'
+            else:
+                if center_pixel:
+                    hmfString=f'_hmf+'
+                else:
+                    hmfString=f'_hmf-'
+        else:
+            hmfString=''
+
         self.filename = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
-        if self.apply_hybrid_median_filter.get():
-            self.filename = self.filename.replace('.ome.tif','_hmf.ome.tif')
+        if not any(processing):
+            self.filename = self.filename.replace(f'_processed.ome.tif',f'{hmfString}.ome.tif')
+        else:
+            self.filename = self.filename.replace(f'.ome.tif',f'{hmfString}.ome.tif')
 
     def save_image(self,data):
         print('compressing and saving data')
