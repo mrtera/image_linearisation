@@ -379,7 +379,16 @@ class App:
     
     @timer_func
     def process(self):
-        
+        self.fdml = self.do_FDML_correction.get()
+        self.x_corr = self.do_x_correction.get()
+        self.y_corr = self.do_y_correction.get()
+        self.z_corr = self.do_z_correction.get()
+        self.rescale = self.rescale_image.get()
+
+        self.hmf = self.hybrid_median_filter.get()
+        self.fSize = self.filter_size.get()
+        self.cPixel = self.include_center_pixel.get()
+
         self.upsampling_factor = int(self.upsampling_factor_spinbox.get())
         self.melt = self.remove_snow.get()
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
@@ -713,29 +722,25 @@ class App:
 
 
     def process_3D(self,data,shape_array):
-        x = self.do_x_correction.get()
-        FDML = self.do_FDML_correction.get()
-        y = self.do_y_correction.get()
-        z = self.do_z_correction.get()
 
-        if x or FDML:
+        if self.x_corr or self.fdml:
             remapped_data = np.zeros((data.shape[0],data.shape[1],shape_array.shape[2]),dtype = 'uint16')
             remapped_data = np.swapaxes(remapped_data,1,2)
             shape_array = np.swapaxes(shape_array,1,2)
             data = np.swapaxes(data,1,2)
 
-            remapped_data = remapping3D(data,shape_array,self.upsampling_factor,FDML)
+            remapped_data = remapping3D(data,shape_array,self.upsampling_factor,self.fdml)
             
             shape_array = np.swapaxes(shape_array,1,2)
             data = remapped_data
             data = np.swapaxes(data,1,2)
 
-        if y:
+        if self.y_corr:
             remapped_data = np.zeros((data.shape[0],shape_array.shape[1],data.shape[2]),dtype = 'uint16')
             remapped_data = remapping3D(data,shape_array,self.upsampling_factor)
             data = remapped_data
 
-        if z:
+        if self.z_corr:
             remapped_data = np.zeros((shape_array.shape[0],data.shape[1],data.shape[2]),dtype = 'uint16')
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_data = np.swapaxes(remapped_data,0,1)
@@ -746,30 +751,27 @@ class App:
             data=remapped_data
             data = np.swapaxes(data,0,1)
 
-        if self.hybrid_median_filter.get():
-            data = hybrid_3d_median_filter(data,include_center_pixel=self.include_center_pixel.get())
+        if self.hmf:
+            data = hybrid_3d_median_filter(data,include_center_pixel=self.cPixel)
         return data
 
     def process_2D(self,data,shape_array):
-        x = self.do_x_correction.get()
-        FDML = self.do_FDML_correction.get()
-        y = self.do_y_correction.get()
 
-        if not x and not FDML and not y:
+        if not self.x_corr and not self.fdml and not self.y_corr:
             remapped_image = data
 
-        if y:
+        if self.y_corr:
             remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
             data=remapped_image
-            
-        if x or FDML:
+
+        if self.x_corr or self.fdml:
             shape_array = np.swapaxes(shape_array,0,1)
             remapped_image = np.swapaxes(data,0,1)
-            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor,FDML)
+            remapped_image = remapping2D(remapped_image,shape_array,self.upsampling_factor,self.fdml)
             remapped_image = np.swapaxes(remapped_image,0,1)
-        
-        if self.hybrid_median_filter.get():
-            remapped_image = hybrid_2d_median_filter(remapped_image,include_center_pixel=self.include_center_pixel.get(),filtersize=self.filter_size.get())
+
+        if self.hmf:
+            remapped_image = hybrid_2d_median_filter(remapped_image,include_center_pixel=self.cPixel,filtersize=self.fSize)
         return remapped_image
 
 ### Snow removal ###
@@ -899,26 +901,17 @@ class App:
         return axes
     
     def set_filename(self):
-        fdml = self.do_FDML_correction.get()
-        x_corr = self.do_x_correction.get()
-        y_corr = self.do_y_correction.get()
-        z_corr = self.do_z_correction.get()
-        rescale = self.rescale_image.get()
+        
+        processing = ([self.fdml,self.x_corr,self.y_corr,self.z_corr,self.rescale])
 
-        hmf = self.hybrid_median_filter.get()
-        filter_size = self.filter_size.get()
-        center_pixel = self.include_center_pixel.get()
-
-        processing = ([fdml,x_corr,y_corr,z_corr,rescale])
-
-        if hmf:
+        if self.hmf:
             if self.is_single_frame or self.is_2D_video:
-                if center_pixel:
-                    hmfString=f'_hmf-{filter_size}x{filter_size}+'
+                if self.cPixel:
+                    hmfString=f'_hmf-{self.fSize}x{self.fSize}+'
                 else:
-                    hmfString=f'_hmf-{filter_size}x{filter_size}-'
+                    hmfString=f'_hmf-{self.fSize}x{self.fSize}-'
             else:
-                if center_pixel:
+                if self.cPixel:
                     hmfString=f'_hmf+'
                 else:
                     hmfString=f'_hmf-'
