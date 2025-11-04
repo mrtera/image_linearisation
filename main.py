@@ -330,6 +330,7 @@ class App:
             self.is_ird = True
             import rawdata
             import napari_streamin.arrays   
+            import imaging
             self.ird_file = rawdata.InputFile()
             self.ird_file.open(self.filename)
             self.provider = rawdata.ImageDataProvider(self.ird_file,0)
@@ -337,7 +338,9 @@ class App:
 
             if images.shape[1]==1:
                 images = napari_streamin.arrays.ImageArray(self.provider)
-                images.image_averaging = self.ird_2d_averaging.get()
+                images._processor.setImageAccumulation(self.ird_2d_averaging.get())
+                images._processor.setUndistortion(imaging.ImageGenerator.Undistort__None)
+
                 self.is_2D_video = True
             else:
                 self.is_3D_video = True
@@ -550,23 +553,16 @@ class App:
         match is2Dt:
             case False:
                 irdata = napari_streamin.arrays.VolumeArray(self.provider)
+                
                 self.axes = 'QQYX'
-                try:
-                    irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
-                    irdata.undistort_y = imaging.ImageGenerator.Undistort__None
-                except:
-                    print('a new streamin version is avalible')
+                irdata._processor.setUndistortion(imaging.VolumeGenerator.Undistort__None)
 
             case True:
                 irdata = napari_streamin.arrays.ImageArray(self.provider)
                 irdata.image_averaging = self.ird_2d_averaging.get()
                 self.axes = 'QYX'
-                try:
-                    irdata.algorithm = imaging.ImageGenerator.Algorithm_Accumulate
-                    irdata.undistort_y = imaging.ImageGenerator.Undistort__None
-                except:
-                    print('a new streamin version is avalible')
-
+                irdata._processor.setImageAccumulation(self.ird_2d_averaging.get())
+                irdata._processor.setUndistortion(imaging.ImageGenerator.Undistort__None)
 
         tif_shape = irdata.shape
         t_dim, z_dim, tif_shape = self.calc_t_dim(tif_shape)
@@ -970,6 +966,3 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
-
-
-# %%
