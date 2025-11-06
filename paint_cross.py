@@ -39,9 +39,9 @@ def read_cvsv_as_array(file_path):
 def paint_cross(image_shape, position, size):
     cross = np.zeros(image_shape, dtype=int)
     z, y, x = position
-    x_size = int(size/0.45)
-    y_size = int(size/0.225)
-    z_size = int(size/1.5625)
+    x_size = int(size/0.467)
+    y_size = int(size/0.26)
+    z_size = int(size/1.59)
 
     x_min = max(0, x - x_size)
     # xmin=x
@@ -70,7 +70,7 @@ for time in range(cross.shape[0]):
     pos = positions[time]
     cross[time] = paint_cross(image_shape,pos, size=1)
     
-with tiff.TiffWriter('D:/cross_painting_output.tif', bigtiff=True) as tif:
+with tiff.TiffWriter('D:/cross_painting_output-avg-all.tif', bigtiff=True) as tif:
     tif.write(cross,
               compression= 'zlib',
               compressionargs={'level': 6})

@@ -21,6 +21,10 @@ from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.patches import Wedge, FancyArrow
 import numpy as np
+import tempfile
+import shutil
+import subprocess
+import glob
 
 
 class GaugeApp(tk.Tk):
@@ -33,32 +37,39 @@ class GaugeApp(tk.Tk):
         self.df = None
         self.selected_column = tk.StringVar()
         self.min_val = tk.DoubleVar(value=0)
-        self.max_val = tk.DoubleVar(value=1.5)
-        self.interval_ms = tk.IntVar(value=0.06305170239596469)
+        self.max_val = tk.DoubleVar(value=1)
+        # interval in milliseconds between frames (default corresponds to 15.86 fps)
+        self.interval_ms = tk.DoubleVar(value=63.05170239596469)
+        # playback / export options
+        self.loop_var = tk.BooleanVar(value=False)
+        self.fps_var = tk.DoubleVar(value=15.86)
         self.running = False
 
         control_frame = ttk.Frame(self)
         control_frame.pack(side=tk.TOP, fill=tk.X, padx=8, pady=8)
 
         ttk.Button(control_frame, text="Open CSV", command=self.open_csv).grid(row=0, column=0, padx=6)
-        ttk.Label(control_frame, text="Min:").grid(row=0, column=2)
-        ttk.Entry(control_frame, textvariable=self.min_val, width=4).grid(row=0, column=3)
-        ttk.Label(control_frame, text="Max:").grid(row=0, column=4)
-        ttk.Entry(control_frame, textvariable=self.max_val, width=4).grid(row=0, column=5)
-        ttk.Label(control_frame, text="Interval (ms):").grid(row=0, column=6)
-        ttk.Entry(control_frame, textvariable=self.interval_ms, width=20).grid(row=0, column=7)
-        ttk.Label(control_frame, text="Units:").grid(row=0, column=8)
-        self.units = tk.StringVar(value="µm/ms")
-        ttk.Entry(control_frame, textvariable=self.units, width=8).grid(row=0, column=9)
-        # option to loop playback
-        self.loop_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(control_frame, text="Loop", variable=self.loop_var).grid(row=1, column=7, padx=6)
+        ttk.Label(control_frame, text="Min:").grid(row=0, column=1)
+        ttk.Entry(control_frame, textvariable=self.min_val, width=4).grid(row=0, column=2)
+        ttk.Label(control_frame, text="Max:").grid(row=0, column=3)
+        ttk.Entry(control_frame, textvariable=self.max_val, width=4).grid(row=0, column=4)
+        ttk.Label(control_frame, text="Interval (ms):").grid(row=0, column=5)
+        ttk.Entry(control_frame, textvariable=self.interval_ms, width=10).grid(row=0, column=6)
+        ttk.Label(control_frame, text="Units:").grid(row=0, column=7)
+        self.units = tk.StringVar(value="mm/s")
+        ttk.Entry(control_frame, textvariable=self.units, width=8).grid(row=0, column=8)
+
+        # playback control row: loop checkbox, fps entry, export button
         ttk.Button(control_frame, text="Start", command=self.start).grid(row=1, column=0, padx=6)
-        ttk.Button(control_frame, text="Stop", command=self.stop).grid(row=1, column=2, columnspan=2, padx=6)
-        # Minimal Prev/Next controls (manual stepping). These only pause playback and
-        # step through the currently loaded `self.data` array.
-        ttk.Button(control_frame, text="Prev", command=self.prev_point).grid(row=1, column=4, columnspan=2, padx=6)
-        ttk.Button(control_frame, text="Next", command=self.next_point).grid(row=1, column=6, padx=6)
+        ttk.Button(control_frame, text="Stop", command=self.stop).grid(row=1, column=1, columnspan=2, padx=6)
+        # Minimal Prev/Next controls (manual stepping)
+        ttk.Button(control_frame, text="Prev", command=self.prev_point).grid(row=1, column=3, columnspan=2, padx=6)
+        ttk.Button(control_frame, text="Next", command=self.next_point).grid(row=1, column=5, padx=6)
+
+        ttk.Checkbutton(control_frame, text="Loop", variable=self.loop_var).grid(row=1, column=6, padx=6)
+        ttk.Label(control_frame, text="Export FPS:").grid(row=1, column=7)
+        ttk.Entry(control_frame, textvariable=self.fps_var, width=6).grid(row=1, column=8)
+        ttk.Button(control_frame, text="Export Video", command=self.export_video).grid(row=1, column=5, padx=6)
 
         # Matplotlib figure
         self.fig = Figure(figsize=(6.5,4.5), dpi=100)
@@ -124,12 +135,64 @@ class GaugeApp(tk.Tk):
         if not self.csv_path:
             messagebox.showwarning("No CSV", "Please open a CSV first.")
             return
-        # prepare for a single pass playback: start a 3s countdown then play once
+        # prepare playback. If Loop checkbox is set, run continuously; otherwise play once.
         self._play_index = 0
-        self.single_pass = True
+        self.single_pass = not self.loop_var.get()
         self.running = False
         # start 3-second countdown
         self._countdown(3)
+
+    def export_video(self):
+        """Render frames for all data points, encode with ffmpeg and save an MP4.
+
+        This method saves per-frame PNGs into a temp dir, then calls ffmpeg.
+        """
+        if getattr(self, 'data', None) is None:
+            messagebox.showwarning("No data", "Open a CSV with data before exporting.")
+            return
+
+        out_path = filedialog.asksaveasfilename(defaultextension='.mp4', filetypes=[('MP4 video','*.mp4')])
+        if not out_path:
+            return
+
+        fps = float(self.fps_var.get() or 15.86)
+        tmpdir = tempfile.mkdtemp(prefix='gauge_frames_')
+        try:
+            self.status_var.set(f"Rendering {len(self.data)} frames...")
+            # Render frames
+            for i, v in enumerate(self.data):
+                try:
+                    # draw into the Figure and save
+                    self.draw_gauge(float(v))
+                    fname = os.path.join(tmpdir, f'frame_{i:06d}.png')
+                    # save with black background
+                    self.fig.savefig(fname, facecolor=self.fig.get_facecolor(), dpi=self.fig.dpi)
+                except Exception as e:
+                    # continue but note error
+                    print('Frame render error', i, e)
+
+            # ensure ffmpeg exists
+            ffmpeg = shutil.which('ffmpeg')
+            if ffmpeg is None:
+                messagebox.showerror('ffmpeg not found', 'ffmpeg is required to encode video. Install ffmpeg and ensure it is on PATH.')
+                return
+
+            self.status_var.set('Encoding video (ffmpeg)...')
+            # build ffmpeg command
+            inp = os.path.join(tmpdir, 'frame_%06d.png')
+            cmd = [ffmpeg, '-y', '-framerate', f'{fps}', '-i', inp, '-c:v', 'libx264', '-pix_fmt', 'yuv420p', out_path]
+            proc = subprocess.run(cmd, capture_output=True, text=True)
+            if proc.returncode != 0:
+                messagebox.showerror('ffmpeg failed', f'Encoding failed: {proc.stderr}')
+                return
+
+            self.status_var.set(f'Exported video: {out_path}')
+            messagebox.showinfo('Export complete', f'Video saved to:\n{out_path}')
+        finally:
+            try:
+                shutil.rmtree(tmpdir)
+            except Exception:
+                pass
 
     def _countdown(self, seconds_left: int):
         """Show a countdown in the status label, then begin playback."""
@@ -205,13 +268,16 @@ class GaugeApp(tk.Tk):
         try:
             idx = int(getattr(self, '_play_index', 0))
             if idx >= len(self.data):
-                # no more data: stop playback (play once)
-                self.running = False
-                try:
-                    self.status_var.set("Done")
-                except Exception:
-                    pass
-                return
+                # no more data
+                if self.loop_var.get():
+                    idx = 0
+                else:
+                    self.running = False
+                    try:
+                        self.status_var.set("Done")
+                    except Exception:
+                        pass
+                    return
             value = float(self.data[idx])
         except Exception:
             return
