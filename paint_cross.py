@@ -4,6 +4,16 @@ import napari
 import tifffile as tiff
 import csv
 
+def center_mass(image):
+    total = np.sum(image)
+    if total == 0:
+        return (0,0,0)
+    z_indices, y_indices, x_indices = np.indices(image.shape)
+    z_cm = int(np.round(np.sum(z_indices * image) / total))
+    y_cm = int(np.round(np.sum(y_indices * image) / total))
+    x_cm = int(np.round(np.sum(x_indices * image) / total))
+    return (z_cm, y_cm, x_cm)
+
 def read_cvsv_as_array(file_path):
     """
     Read a CSV where column A (col 0) = x, B (col 1) = y, C (col 2) = z.
@@ -58,25 +68,41 @@ def paint_cross(image_shape, position, size):
     cross[z_min:z_max,y_min:y_max,:] = 1
     return cross
 
-# with tiff.TiffFile('D:/streamin_20250205_173054_processed_best part prop-1-95 substack_pc_hmf.ome.tif') as tif:
-#     imagein = tif.asarray()
-# image = imagein[2:-4,:,:,:]  # Adjust indexing as needed
+def generate_trace(positions):
+    trace = np.zeros((positions.shape[0],positions.shape[1]+2), dtype=int)
+    for time in range(positions.shape[0]):
+        z,y,x = positions[time]
+        trace[time] = (0,time,z,y,x)
+    return trace
 
-positions = read_cvsv_as_array('D:\\positions.csv')
+# with tiff.TiffFile('D:/streamin_20250205_173054_V275-370_processed_pc_hmf-.ome.tif') as tif:
+#     imagein = tif.asarray()
+
 cross = np.zeros_like(image)
 image_shape = image[0].shape
+# cm = np.zeros_like(image)
+
+positions = read_cvsv_as_array('D:\\positions_pixel.csv')
+trace = generate_trace(positions)
+for row in trace:
+    print(f'[{row[0]},{row[1]},{row[2]},{row[3]},{row[4]}],')
 
 for time in range(cross.shape[0]):
     pos = positions[time]
     cross[time] = paint_cross(image_shape,pos, size=1)
-    
-with tiff.TiffWriter('D:/cross_painting_output-avg-all.tif', bigtiff=True) as tif:
-    tif.write(cross,
-              compression= 'zlib',
-              compressionargs={'level': 6})
 
+
+# with tiff.TiffWriter('D:/cross_tracking.tif', bigtiff=True) as tif:
+#     tif.write(cross,
+#               compression= 'zlib',
+#               compressionargs={'level': 6})
 
 # with tiff.TiffWriter('D:/cropped.tif', bigtiff=True) as tif:
 #     tif.write(image,
+#               compression= 'zlib',
+#               compressionargs={'level': 6})
+
+# with tiff.TiffWriter('D:/cross_center_mass.tif', bigtiff=True) as tif:
+#     tif.write(cm,
 #               compression= 'zlib',
 #               compressionargs={'level': 6})

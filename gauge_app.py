@@ -352,7 +352,6 @@ class GaugeApp(tk.Tk):
             label = f"{minv + frac*(maxv-minv):.1f}"
             lx = 0.55 * math.cos(ang)
             ly = 0.55 * math.sin(ang)
-            # if frac %2 == 0:
             if tick:
                 ax.text(lx, ly, label, horizontalalignment='center', verticalalignment='center', fontsize=20, fontweight='bold', color='white')
             tick = not tick
