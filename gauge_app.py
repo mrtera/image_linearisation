@@ -17,6 +17,7 @@ import time
 
 import matplotlib
 matplotlib.use("TkAgg")
+import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.patches import Wedge, FancyArrow
@@ -37,13 +38,22 @@ class GaugeApp(tk.Tk):
         self.df = None
         self.selected_column = tk.StringVar()
         self.min_val = tk.DoubleVar(value=0)
-        self.max_val = tk.DoubleVar(value=1)
+        self.max_val = tk.DoubleVar(value=250)
         # interval in milliseconds between frames (default corresponds to 15.86 fps)
         self.interval_ms = tk.DoubleVar(value=63.05170239596469)
         # playback / export options
         self.loop_var = tk.BooleanVar(value=False)
         self.fps_var = tk.DoubleVar(value=15.86)
         self.running = False
+        # track the id returned by `after` so we can cancel scheduled callbacks
+        self._after_id = None
+        # track any long-running subprocess (ffmpeg) if we add streaming in future
+        self._ffmpeg_proc = None
+        # handle window close to ensure background callbacks are cancelled
+        try:
+            self.protocol("WM_DELETE_WINDOW", self.on_close)
+        except Exception:
+            pass
 
         control_frame = ttk.Frame(self)
         control_frame.pack(side=tk.TOP, fill=tk.X, padx=8, pady=8)
@@ -56,7 +66,7 @@ class GaugeApp(tk.Tk):
         ttk.Label(control_frame, text="Interval (ms):").grid(row=0, column=5)
         ttk.Entry(control_frame, textvariable=self.interval_ms, width=10).grid(row=0, column=6)
         ttk.Label(control_frame, text="Units:").grid(row=0, column=7)
-        self.units = tk.StringVar(value="mm/s")
+        self.units = tk.StringVar(value="µm/s")
         ttk.Entry(control_frame, textvariable=self.units, width=8).grid(row=0, column=8)
 
         # playback control row: loop checkbox, fps entry, export button
@@ -70,9 +80,10 @@ class GaugeApp(tk.Tk):
         ttk.Label(control_frame, text="Export FPS:").grid(row=1, column=7)
         ttk.Entry(control_frame, textvariable=self.fps_var, width=6).grid(row=1, column=8)
         ttk.Button(control_frame, text="Export Video", command=self.export_video).grid(row=1, column=5, padx=6)
+        ttk.Button(control_frame, text="Export Colormap", command=self.export_cmap).grid(row=1, column=9, padx=6)
 
         # Matplotlib figure
-        self.fig = Figure(figsize=(6.5,4.5), dpi=100)
+        self.fig = Figure(figsize=(5.5,4.5), dpi=100)
         # make overall figure background black
         self.fig.patch.set_facecolor('black')
         self.ax = self.fig.add_subplot(111, polar=False)
@@ -139,8 +150,8 @@ class GaugeApp(tk.Tk):
         self._play_index = 0
         self.single_pass = not self.loop_var.get()
         self.running = False
-        # start 3-second countdown
-        self._countdown(3)
+        # start 1-second countdown
+        self._countdown(1)
 
     def export_video(self):
         """Render frames for all data points, encode with ffmpeg and save an MP4.
@@ -201,8 +212,11 @@ class GaugeApp(tk.Tk):
                 self.status_var.set(f"Starting in {seconds_left}...")
             except Exception:
                 pass
-            # call again in 1 second
-            self.after(1000, lambda: self._countdown(seconds_left - 1))
+            # call again in 1 second (store id so we can cancel on exit)
+            try:
+                self._after_id = self.after(1000, lambda: self._countdown(seconds_left - 1))
+            except Exception:
+                pass
             return
 
         # start running and play from the beginning once
@@ -215,7 +229,43 @@ class GaugeApp(tk.Tk):
         self.poll_csv()
 
     def stop(self):
+        # stop playback and cancel any scheduled after callback
         self.running = False
+        try:
+            if getattr(self, '_after_id', None) is not None:
+                self.after_cancel(self._after_id)
+                self._after_id = None
+        except Exception:
+            pass
+
+    def on_close(self):
+        """Called when the window is closed. Cancel callbacks and exit cleanly."""
+        try:
+            # stop running loops
+            self.running = False
+            # cancel any pending after callback
+            if getattr(self, '_after_id', None) is not None:
+                try:
+                    self.after_cancel(self._after_id)
+                except Exception:
+                    pass
+                self._after_id = None
+            # if we ever used a subprocess, try to terminate it
+            if getattr(self, '_ffmpeg_proc', None) is not None:
+                try:
+                    self._ffmpeg_proc.terminate()
+                except Exception:
+                    pass
+        finally:
+            try:
+                # stop the Tk mainloop and destroy the window
+                self.quit()
+            except Exception:
+                pass
+            try:
+                self.destroy()
+            except Exception:
+                pass
 
     def prev_point(self):
         """Pause playback and move one step backward in the loaded data."""
@@ -313,21 +363,52 @@ class GaugeApp(tk.Tk):
         self.fig.clear()
         ax = self.fig.add_subplot(111)
         ax.set_facecolor('black')
-        # position the axes a bit higher in the figure so the gauge appears
-        # closer to the top of the window (left, bottom, width, height)
+        # position the axes to leave room for labels below and make the
+        # plotting area square so the semicircle is not stretched.
+        # (left, bottom, width, height)
         try:
-            ax.set_position([0.05, 0.30, 0.90, 0.65])
+            ax.set_position([0.05, 0.08, 0.90, 0.84])
         except Exception:
             pass
-        ax.set_xlim(-1.1, 1.1)
-        ax.set_ylim(-0.1, 1.3)
+        # use a symmetric square viewport and enforce equal aspect for circular gauge
+        ax.set_xlim(-1.15, 1.15)
+        ax.set_ylim(-1.15, 1.15)
+        try:
+            ax.set_aspect('equal', adjustable='box')
+        except Exception:
+            pass
         ax.axis('off')
 
-        # draw arcs for zones (green, yellow, red)
+        # draw a continuous background using the 'turbo' colormap
         minv = float(self.min_val.get())
         maxv = float(self.max_val.get())
         if maxv <= minv:
             maxv = minv + 1
+        try:
+            cmap = plt.get_cmap('turbo')
+        except Exception:
+            cmap = plt.get_cmap('viridis')
+
+        # draw many small wedges across the top semicircle and color them by the colormap
+        nseg = 400
+        r_outer = 0.65
+        r_inner = 0.1
+        for i, frac in enumerate(np.linspace(0.0, 1.0, nseg)):
+            # compute angular span for this segment (degrees)
+            start_deg = 180.0 - (i / nseg) * 180.0
+            end_deg = 180.0 - ((i + 1) / nseg) * 180.0
+            color = cmap(frac)
+            try:
+                wedge = Wedge((0, 0), r_outer, end_deg, start_deg, width=(r_outer - r_inner), facecolor=color, edgecolor='none')
+                ax.add_patch(wedge)
+            except Exception:
+                # fallback: draw a thin line if Wedge fails
+                ang = math.radians((start_deg + end_deg) / 2.0)
+                x1 = r_inner * math.cos(ang)
+                y1 = r_inner * math.sin(ang)
+                x2 = r_outer * math.cos(ang)
+                y2 = r_outer * math.sin(ang)
+                ax.plot([x1, x2], [y1, y2], color=color, linewidth=3)
 
         def value_to_angle(v):
             # map [minv,maxv] to angles across the TOP semicircle: left->top->right
@@ -340,43 +421,122 @@ class GaugeApp(tk.Tk):
 
         # ticks and labels
         tick = True
-        for frac in np.linspace(0,1,5):
+        for frac in np.linspace(0,1,6):
             
             # tick angles along top semicircle (left=180 -> right=0)
             ang = math.radians(180.0 - frac * 180.0)
-            x1 = 0.2 * math.cos(ang)
-            y1 = 0.2 * math.sin(ang)
-            x2 = 0.4 * math.cos(ang)
-            y2 = 0.4 * math.sin(ang)
-            ax.plot([x1,x2],[y1,y2], color='white', linewidth=7)
-            label = f"{minv + frac*(maxv-minv):.1f}"
-            lx = 0.55 * math.cos(ang)
-            ly = 0.55 * math.sin(ang)
+            x1 = 0.4 * math.cos(ang)
+            y1 = 0.4 * math.sin(ang)
+            x2 = 0.63 * math.cos(ang)
+            y2 = 0.63 * math.sin(ang)
+            ax.plot([x1,x2],[y1,y2], color='white', linewidth=2)
+            label = f"{minv + frac*(maxv-minv):.0f}"
+            lx = 0.85 * math.cos(ang)
+            ly = 0.85 * math.sin(ang)
             if tick:
-                ax.text(lx, ly, label, horizontalalignment='center', verticalalignment='center', fontsize=20, fontweight='bold', color='white')
-            tick = not tick
+                ax.text(lx, ly, label, horizontalalignment='center', verticalalignment='center', fontsize=18, fontweight='bold', color='white')
+            # tick = not tick
 
         # draw needle
         if value is not None:
             angle = value_to_angle(value)
-            nx = 0.35 * math.cos(angle)
-            ny = 0.35 * math.sin(angle)
-            ax.plot([0, nx], [0, ny], color='red', linewidth=7)
+            nx = 0.6 * math.cos(angle)
+            ny = 0.6 * math.sin(angle)
+            ax.plot([0, nx], [0, ny], color='red', linewidth=3)
 
             # center circle
             center = matplotlib.patches.Circle((0,0), 0.05, color='white')
             ax.add_patch(center)
 
-            ax.text(0, -0.09, f"{value:.3f}", horizontalalignment='center', verticalalignment='top', fontsize=18, fontweight='bold', color='white')
+            ax.text(0, -0.12, f"{value:.0f}", horizontalalignment='center', verticalalignment='top', fontsize=18, fontweight='bold', color='white')
             # show units next to the numeric value
             try:
                 unit = self.units.get()
             except Exception:
                 unit = ''
-            ax.text(0, -0.22, f"{unit}", horizontalalignment='center', verticalalignment='top', fontsize=18, fontweight='bold', color='white')
+            ax.text(0, -0.3, f"{unit}", horizontalalignment='center', verticalalignment='top', fontsize=18, fontweight='bold', color='white')
 
         self.canvas.draw()
+    def export_cmap(self):
+        """Export the current colormap to a PNG file with transparent background."""
+        out_path = filedialog.asksaveasfilename(defaultextension='.svg', filetypes=[('SVG image','*.svg')])
+        # determine colormap range from loaded data or min/max controls and prepare ticks
+        try:
+            if getattr(self, 'data', None) is not None and len(self.data) > 0:
+                dmin = float(np.nanmin(self.data))
+                dmax = float(np.nanmax(self.data))
+            else:
+                dmin = float(self.min_val.get())
+                dmax = float(self.max_val.get())
+        except Exception:
+            dmin, dmax = 0.0, 1.0
+        if dmax <= dmin:
+            dmax = dmin + 1.0
 
+        num_ticks = 3
+        cmap_ticks = np.linspace(dmin, dmax, num_ticks)
+        tick_formatter = lambda v: f"{v:.0f}"
+
+        # Monkeypatch plt.subplots briefly so the following code (which calls plt.subplots,
+        # ax.imshow(...) and ax.set_axis_off()) will produce an image whose x-axis is
+        # scaled to [dmin, dmax] and that receives the requested ticks/labels.
+        _orig_subplots = plt.subplots
+
+
+        def _patched_subplots(*args, **kwargs):
+            fig, ax = _orig_subplots(*args, **kwargs)
+            _orig_imshow = ax.imshow
+
+            def _imshow_override(arr, *a, **kw):
+                # force the image to span the data range on X axis
+                kw.setdefault('extent', (dmin, dmax, 0, 1))
+                m = _orig_imshow(arr, *a, **kw)
+                # set ticks and styling after the image is drawn
+                ax.set_axis_on()
+                ax.xaxis.set_ticks_position('bottom')
+                ax.set_xticks(cmap_ticks)
+                ax.set_xticklabels([tick_formatter(v) for v in cmap_ticks], color='white', fontsize=10)
+                ax.set_yticks([])
+                # try to show units below the colorbar
+                try:
+                    unit = self.units.get()
+                except Exception:
+                    unit = ''
+                if unit:
+                    ax.set_xlabel(unit, color='white', fontsize=10)
+                # clean up spines for nicer appearance on transparent background
+                for side in ('top', 'right', 'left'):
+                    ax.spines[side].set_visible(False)
+                    ax.spines['bottom'].set_color('white')
+                return m
+
+            def _set_axis_off_noop():
+                # original code calls set_axis_off(); override so we keep axis and ticks visible
+                return
+
+            ax.imshow = _imshow_override
+            ax.set_axis_off = _set_axis_off_noop
+
+            # restore plt.subplots to original so our patch is temporary
+            plt.subplots = _orig_subplots
+            return fig, ax
+
+
+        plt.subplots = _patched_subplots
+        if not out_path:
+            return
+        try:
+            # create a temporary figure for the colormap
+            fig, ax = plt.subplots(figsize=(3, 1), dpi=300)
+            fig.patch.set_alpha(0.0)  # transparent background
+            cmap = plt.get_cmap('turbo')
+            gradient = np.linspace(0, 1, 500)
+            gradient = np.vstack((gradient, gradient))
+            ax.imshow(gradient, aspect='auto', cmap=cmap)
+            ax.set_axis_off()
+            fig.savefig(out_path, bbox_inches='tight', pad_inches=0)
+        except Exception as e:
+            print(f"Error exporting colormap: {e}")
 
 if __name__ == '__main__':
     app = GaugeApp()
