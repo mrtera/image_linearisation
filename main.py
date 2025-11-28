@@ -16,6 +16,7 @@ from time import time
 try:
     import rawdata
     import napari_streamin.arrays
+    from napari_streamin.read_ird import create_metadata
 except ImportError:
     print('napari_streamin import error, can only process tif files')
 
@@ -333,6 +334,10 @@ class App:
             import imaging
             self.ird_file = rawdata.InputFile()
             self.ird_file.open(self.filename)
+            metadata = create_metadata(self.ird_file)
+            print('IRD Metadata:')
+            for key, value in metadata.items():
+                print(f'{key}: {value}')
             self.provider = rawdata.ImageDataProvider(self.ird_file,0)
             images = napari_streamin.arrays.VolumeArray(self.provider)
 

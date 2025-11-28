@@ -44,14 +44,15 @@ def read_cvsv_as_array(file_path):
                 # skip rows that don't parse
                 continue
             positions.append((zi, yi, xi))
+        print(positions)
     return np.asarray(positions, dtype=int)
 
 def paint_cross(image_shape, position, size):
     cross = np.zeros(image_shape, dtype=int)
     z, y, x = position
-    x_size = int(size/0.467)
-    y_size = int(size/0.26)
-    z_size = int(size/1.59)
+    x_size = int(size/0.5)
+    y_size = int(size/0.2)
+    z_size = int(size/1)
 
     x_min = max(0, x - x_size)
     # xmin=x
@@ -75,14 +76,14 @@ def generate_trace(positions):
         trace[time] = (0,time,z,y,x)
     return trace
 
-# with tiff.TiffFile('D:/streamin_20250205_173054_V275-370_processed_pc_hmf-.ome.tif') as tif:
-#     imagein = tif.asarray()
+with tiff.TiffFile('D:/streamin_20250205_173305_phase-corrected_hmf.ome.tif') as tif:
+    image = tif.asarray()
 
 cross = np.zeros_like(image)
 image_shape = image[0].shape
 # cm = np.zeros_like(image)
 
-positions = read_cvsv_as_array('D:\\positions_pixel.csv')
+positions = read_cvsv_as_array('D:\\SMP positions-pixel.csv')
 trace = generate_trace(positions)
 for row in trace:
     print(f'[{row[0]},{row[1]},{row[2]},{row[3]},{row[4]}],')
@@ -92,7 +93,7 @@ for time in range(cross.shape[0]):
     cross[time] = paint_cross(image_shape,pos, size=1)
 
 
-# with tiff.TiffWriter('D:/cross_tracking.tif', bigtiff=True) as tif:
+# with tiff.TiffWriter('D:/MP_cross.tif', bigtiff=True) as tif:
 #     tif.write(cross,
 #               compression= 'zlib',
 #               compressionargs={'level': 6})
