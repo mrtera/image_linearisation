@@ -511,11 +511,11 @@ class App:
             try:
                 z_dim = data.shape[-3]
             except IndexError:
-                pass
+                z_dim = 1
             try:
                 t_dim = data.shape[-4]
             except IndexError:
-                pass
+                t_dim = 1
         else:
             x_dim = data.shape[-1]
             y_dim = data.shape[-2]
@@ -532,7 +532,7 @@ class App:
                 try:
                     z_dim = int(round(z_dim*2/np.pi))
                 except UnboundLocalError:
-                    pass
+                    z_dim = 1
 
         if self.is_single_frame:
             shape = (y_dim,x_dim)
@@ -549,6 +549,7 @@ class App:
         if self.is_3D_video:
             shape = (t_dim,z_dim,y_dim,x_dim)
             memmap, new_array = self.initialize_data_array(shape,name='_processed')
+        self.image_out_shape = (t_dim,z_dim,y_dim,x_dim)
         return new_array, memmap
 
 
@@ -854,6 +855,17 @@ class App:
                     filtered_data[flakes] = 0
 
         return filtered_data
+
+    def make_metadata(self):
+        ird_metadata = create_metadata(self.ird_file)
+        px_size_x =ird_metadata['MM/Machine/ScaleX']*ird_metadata['MM/Laser/SweepRange']/self.image_out_shape[-1]
+        px_size_y =ird_metadata['MM/Machine/ScaleY']*ird_metadata['MM/FunX/SineAmplitude']/self.image_out_shape[-2]
+        px_size_z =ird_metadata['MM/Machine/ScaleZ']*ird_metadata['MM/FunY/SineAmplitude']/self.image_out_shape[-3]
+        metadata = {
+            'axes': self.get_axes(),
+            'unit': 'um',
+        }
+        return metadata
     
     def save_data(self,data,new_shape,in_memmap,out_memmap):
         print('Saving data')
@@ -936,10 +948,11 @@ class App:
             bigtiff=TRUE,
             photometric='minisblack',
             compression='zlib',
-            compressionargs={'level': 8},
+            compressionargs={'level': 6},
             metadata={
             'axes': axes,
             'unit': 'um',
+            
             })
         del data
         print('Data compressed and saved')
