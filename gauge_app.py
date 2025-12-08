@@ -64,7 +64,7 @@ class GaugeApp(tk.Tk):
         ttk.Label(control_frame, text="Max:").grid(row=0, column=3)
         ttk.Entry(control_frame, textvariable=self.max_val, width=4).grid(row=0, column=4)
         ttk.Label(control_frame, text="Interval (ms):").grid(row=0, column=5)
-        ttk.Entry(control_frame, textvariable=self.interval_ms, width=10).grid(row=0, column=6)
+        ttk.Entry(control_frame, textvariable=self.interval_ms, width=5).grid(row=0, column=6)
         ttk.Label(control_frame, text="Units:").grid(row=0, column=7)
         self.units = tk.StringVar(value="µm/s")
         ttk.Entry(control_frame, textvariable=self.units, width=8).grid(row=0, column=8)
@@ -77,10 +77,11 @@ class GaugeApp(tk.Tk):
         ttk.Button(control_frame, text="Next", command=self.next_point).grid(row=1, column=5, padx=6)
 
         ttk.Checkbutton(control_frame, text="Loop", variable=self.loop_var).grid(row=1, column=6, padx=6)
-        ttk.Label(control_frame, text="Export FPS:").grid(row=1, column=7)
+        ttk.Label(control_frame, text="FPS:").grid(row=1, column=7)
         ttk.Entry(control_frame, textvariable=self.fps_var, width=6).grid(row=1, column=8)
-        ttk.Button(control_frame, text="Export Video", command=self.export_video).grid(row=1, column=5, padx=6)
-        ttk.Button(control_frame, text="Export Colormap", command=self.export_cmap).grid(row=1, column=9, padx=6)
+        ttk.Button(control_frame, text="Exp. Video", command=self.export_video).grid(row=1, column=5, padx=6)
+        ttk.Button(control_frame, text="Exp. Frames", command=self.export_frames_png).grid(row=0, column=8, padx=6)
+        ttk.Button(control_frame, text="Exp. Colormap", command=self.export_cmap).grid(row=1, column=9, padx=6)
 
         # Matplotlib figure
         self.fig = Figure(figsize=(5.5,4.5), dpi=100)
@@ -152,6 +153,56 @@ class GaugeApp(tk.Tk):
         self.running = False
         # start 1-second countdown
         self._countdown(1)
+
+    def export_frames_png(self):
+        """Export each frame as a PNG with transparent background."""
+        if getattr(self, 'data', None) is None:
+            messagebox.showwarning("No data", "Open a CSV with data before exporting.")
+            return
+
+        out_dir = filedialog.askdirectory(title="Select folder to save PNG frames")
+        if not out_dir:
+            return
+
+        try:
+            self.status_var.set(f"Exporting {len(self.data)} frames as PNG...")
+            
+            # Store original facecolor to restore later
+            original_fig_color = self.fig.get_facecolor()
+            original_ax_color = self.ax.get_facecolor()
+            
+            # Set transparent background
+            self.fig.patch.set_alpha(0)
+            self.ax.set_facecolor('none')
+            self.ax.patch.set_alpha(0)
+            
+            # Render frames
+            for i, v in enumerate(self.data):
+                try:
+                    # draw into the Figure and save
+                    self.draw_gauge(float(v))
+                    fname = os.path.join(out_dir, f'frame_{i:06d}.png')
+                    # save with transparent background
+                    self.fig.savefig(fname, transparent=True, dpi=self.fig.dpi)
+                except Exception as e:
+                    # continue but note error
+                    print('Frame render error', i, e)
+            
+            # Restore original background colors
+            self.fig.patch.set_facecolor(original_fig_color)
+            self.fig.patch.set_alpha(1)
+            self.ax.set_facecolor(original_ax_color)
+            self.ax.patch.set_alpha(1)
+            
+            # Redraw the current gauge to show restored background
+            if hasattr(self, '_play_index'):
+                self.draw_gauge(float(self.data[self._play_index]))
+                self.canvas.draw()
+            
+            self.status_var.set(f'Exported {len(self.data)} frames to: {out_dir}')
+            messagebox.showinfo('Export complete', f'{len(self.data)} PNG frames saved to:\n{out_dir}')
+        except Exception as e:
+            messagebox.showerror('Export failed', f'Error during export: {str(e)}')
 
     def export_video(self):
         """Render frames for all data points, encode with ffmpeg and save an MP4.
@@ -442,7 +493,7 @@ class GaugeApp(tk.Tk):
             angle = value_to_angle(value)
             nx = 0.6 * math.cos(angle)
             ny = 0.6 * math.sin(angle)
-            ax.plot([0, nx], [0, ny], color='red', linewidth=3)
+            ax.plot([0, nx], [0, ny], color='white', linewidth=3)
 
             # center circle
             center = matplotlib.patches.Circle((0,0), 0.05, color='white')
