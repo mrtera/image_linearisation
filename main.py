@@ -855,15 +855,15 @@ class App:
     def make_metadata(self):
         ird_metadata = create_metadata(self.ird_file)
         if self.is_2D_video:
-            time_increment = float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2)
+            time_increment = round(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2),2)
         elif self.is_3D_video:
-            time_increment = float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2*float(ird_metadata['MM/FunY/SineLength']))
+            time_increment = round(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2*float(ird_metadata['MM/FunY/SineLength'])),2)
         else:
             time_increment = 0
 
-        px_size_x =float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1]
-        px_size_y =float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2]
-        px_size_z =float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3]
+        px_size_x =round(float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1],1)
+        px_size_y =round(float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2],1)
+        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],1)
         metadata = {
             'axes': self.get_axes(),
             'unit': 'µm',
