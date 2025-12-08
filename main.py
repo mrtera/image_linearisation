@@ -334,10 +334,6 @@ class App:
             import imaging
             self.ird_file = rawdata.InputFile()
             self.ird_file.open(self.filename)
-            metadata = create_metadata(self.ird_file)
-            print('IRD Metadata:')
-            for key, value in metadata.items():
-                print(f'{key}: {value}')
             self.provider = rawdata.ImageDataProvider(self.ird_file,0)
             images = napari_streamin.arrays.VolumeArray(self.provider)
 
@@ -851,19 +847,37 @@ class App:
             for flakes in new_snow_coords:
                 if all(a < b for a, b in zip(flakes,data_shape)) and all(a > b for a, b in zip(flakes,(0,0,0))):
                     filtered_data[flakes] = np.round(np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)).astype('uint16')
-                else:
+                # else:
                     filtered_data[flakes] = 0
 
         return filtered_data
 
     def make_metadata(self):
         ird_metadata = create_metadata(self.ird_file)
-        px_size_x =ird_metadata['MM/Machine/ScaleX']*ird_metadata['MM/Laser/SweepRange']/self.image_out_shape[-1]
-        px_size_y =ird_metadata['MM/Machine/ScaleY']*ird_metadata['MM/FunX/SineAmplitude']/self.image_out_shape[-2]
-        px_size_z =ird_metadata['MM/Machine/ScaleZ']*ird_metadata['MM/FunY/SineAmplitude']/self.image_out_shape[-3]
+        if self.is_2D_video:
+            time_increment = float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2)
+        elif self.is_3D_video:
+            time_increment = float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2*float(ird_metadata['MM/FunY/SineLength']))
+        else:
+            time_increment = 0
+
+        px_size_x =float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1]
+        px_size_y =float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2]
+        px_size_z =float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3]
         metadata = {
             'axes': self.get_axes(),
-            'unit': 'um',
+            'unit': 'µm',
+            'TimeIncrement': time_increment,
+            'TimeIncrementUnit': 's',
+            'PhysicalSizeX': px_size_x,
+            'PhysicalSizeXUnit': 'µm',
+            'PhysicalSizeY': px_size_y,
+            'PhysicalSizeYUnit': 'µm',
+            'PhysicalSizeZ': px_size_z,
+            'PhysicalSizeZUnit': 'µm',
+            'spacing': px_size_z,
+            'unit': 'µm',
+            'fps': 1/time_increment
         }
         return metadata
     
@@ -949,11 +963,8 @@ class App:
             photometric='minisblack',
             compression='zlib',
             compressionargs={'level': 6},
-            metadata={
-            'axes': axes,
-            'unit': 'um',
-            
-            })
+            metadata=self.make_metadata()
+            )
         del data
         print('Data compressed and saved')
 
@@ -971,10 +982,9 @@ class App:
                     photometric='minisblack',
                     compression='zlib',
                     compressionargs={'level': 8},
-                    metadata={
-                    'axes': axes,
-                    'unit': 'um',
-                    })
+                    metadata=self.make_metadata()
+
+                    )
             print('Data compressed and saved')
         except np.core._exceptions._ArrayMemoryError:
             print('Data too large for RAM, saved uncompressed data instead')
