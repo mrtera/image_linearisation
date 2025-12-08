@@ -183,7 +183,7 @@ class GaugeApp(tk.Tk):
                     self.draw_gauge(float(v))
                     fname = os.path.join(out_dir, f'frame_{i:06d}.png')
                     # save with transparent background
-                    self.fig.savefig(fname, transparent=True, dpi=self.fig.dpi)
+                    self.fig.savefig(fname, transparent=True, dpi=200)
                 except Exception as e:
                     # continue but note error
                     print('Frame render error', i, e)
@@ -228,7 +228,7 @@ class GaugeApp(tk.Tk):
                     self.draw_gauge(float(v))
                     fname = os.path.join(tmpdir, f'frame_{i:06d}.png')
                     # save with black background
-                    self.fig.savefig(fname, facecolor=self.fig.get_facecolor(), dpi=self.fig.dpi)
+                    self.fig.savefig(fname, facecolor=self.fig.get_facecolor(), dpi=200)
                 except Exception as e:
                     # continue but note error
                     print('Frame render error', i, e)
@@ -578,7 +578,7 @@ class GaugeApp(tk.Tk):
             return
         try:
             # create a temporary figure for the colormap
-            fig, ax = plt.subplots(figsize=(3, 1), dpi=300)
+            fig, ax = plt.subplots(figsize=(3, 1), dpi=200)
             fig.patch.set_alpha(0.0)  # transparent background
             cmap = plt.get_cmap('turbo')
             gradient = np.linspace(0, 1, 500)
