@@ -322,6 +322,8 @@ class App:
         self.is_single_volume = False
         self.is_2D_video = False
         self.is_3D_video = False
+        self.channels = 1
+        
         try:
             del self.original_t_dim
         except AttributeError:
@@ -336,6 +338,7 @@ class App:
             self.ird_file.open(self.filename)
             self.provider = rawdata.ImageDataProvider(self.ird_file,0)
             images = napari_streamin.arrays.VolumeArray(self.provider)
+            self.channels = self.ird_file.numChannels()
 
             if images.shape[1]==1:
                 images = napari_streamin.arrays.ImageArray(self.provider)
