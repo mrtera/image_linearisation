@@ -15,6 +15,7 @@ from time import time
 
 try:
     import rawdata
+    import imaging
     import napari_streamin.arrays
     from napari_streamin.read_ird import create_metadata
 except ImportError:
@@ -294,7 +295,7 @@ class App:
         ird_2d_averaging_label = Label(ird_frame, text='2D averaging:')
         ird_2d_averaging_label.grid(row=current_row, column=0)
         ird_2d_averaging_spinbox = Spinbox(ird_frame, from_=1, to=100000, width=6, textvariable=self.ird_2d_averaging)
-        ird_2d_averaging_spinbox.set(self.ird_2d_averaging.get())
+        # ird_2d_averaging_spinbox.set(self.ird_2d_averaging.get())
         ird_2d_averaging_spinbox.grid(row=current_row, column=1)
         current_row += 1
 
@@ -331,9 +332,9 @@ class App:
 
         if self.filename.endswith('.ird'):
             self.is_ird = True
-            import rawdata
-            import napari_streamin.arrays   
-            import imaging
+            # import rawdata
+            # import napari_streamin.arrays   
+            # import imaging
             self.ird_file = rawdata.InputFile()
             self.ird_file.open(self.filename)
             self.provider = rawdata.ImageDataProvider(self.ird_file,0)
@@ -553,8 +554,8 @@ class App:
 
 
     def load_ird(self, sections, snow_value=0, in_memmap=False, is2Dt=False):
-        import napari_streamin.arrays
-        import imaging # needed to change parameters such as undistort algorithm or sample processor
+        # import napari_streamin.arrays
+        # import imaging # needed to change parameters such as undistort algorithm or sample processor
         match is2Dt:
             case False:
                 irdata = napari_streamin.arrays.VolumeArray(self.provider)
@@ -856,32 +857,38 @@ class App:
         return filtered_data
 
     def make_metadata(self):
+        averaging = 1 
+        meta3D = {}
         ird_metadata = create_metadata(self.ird_file)
         if self.is_2D_video:
-            time_increment = round(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2),2)
+            averaging = self.ird_2d_averaging.get()
+            time_increment = 1/(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2))
         elif self.is_3D_video:
-            time_increment = round(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2*float(ird_metadata['MM/FunY/SineLength'])),2)
+            time_increment = 1/(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2*float(ird_metadata['MM/FunY/SineLength'])))
+            meta3D = {
+                'PhysicalSizeZ': px_size_z,
+                'PhysicalSizeZUnit': 'µm',
+                'spacing': px_size_z,
+                }
         else:
-            time_increment = 0
+            time_increment = 1
 
-        px_size_x =round(float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1],1)
-        px_size_y =round(float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2],1)
-        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],1)
+        px_size_x =round(float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1],2)
+        px_size_y =round(float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2],2)
+        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],2)
         metadata = {
             'axes': self.get_axes(),
             'unit': 'µm',
-            'TimeIncrement': time_increment,
+            'TimeIncrement': time_increment*averaging,
             'TimeIncrementUnit': 's',
             'PhysicalSizeX': px_size_x,
             'PhysicalSizeXUnit': 'µm',
             'PhysicalSizeY': px_size_y,
             'PhysicalSizeYUnit': 'µm',
-            'PhysicalSizeZ': px_size_z,
-            'PhysicalSizeZUnit': 'µm',
-            'spacing': px_size_z,
             'unit': 'µm',
-            'fps': 1/time_increment
+            'fps': 1/(time_increment*averaging)
         }
+        metadata.update(meta3D)
         return metadata
     
     def save_data(self,data,new_shape,in_memmap,out_memmap):
