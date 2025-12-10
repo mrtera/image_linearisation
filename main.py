@@ -857,6 +857,9 @@ class App:
         return filtered_data
 
     def make_metadata(self):
+        if not self.is_ird:
+            return {'axes': self.get_axes()}
+        
         averaging = 1 
         meta3D = {}
         ird_metadata = create_metadata(self.ird_file)
