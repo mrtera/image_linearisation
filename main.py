@@ -332,14 +332,14 @@ class App:
 
         if self.filename.endswith('.ird'):
             self.is_ird = True
-            # import rawdata
-            # import napari_streamin.arrays   
-            # import imaging
             self.ird_file = rawdata.InputFile()
             self.ird_file.open(self.filename)
             self.provider = rawdata.ImageDataProvider(self.ird_file,0)
             images = napari_streamin.arrays.VolumeArray(self.provider)
             self.channels = self.ird_file.numChannels()
+
+            if images.shape[0]==1:
+                self.is_single_volume = True
 
             if images.shape[1]==1:
                 images = napari_streamin.arrays.ImageArray(self.provider)
@@ -347,8 +347,11 @@ class App:
                 images._processor.setUndistortion(imaging.ImageGenerator.Undistort__None)
 
                 self.is_2D_video = True
-            else:
-                self.is_3D_video = True
+
+                if images.shape[0]==1:
+                    self.is_single_frame = True
+                    self.is_2D_video = False
+
             self.original_t_dim = images.shape[0]
             shape = images.shape
         
@@ -408,15 +411,13 @@ class App:
             self.decide_data_type()
             print("Processing: '"+self.filename+"' \nloading data")
 
-            if self.is_single_frame or self.is_single_volume:
+            if (self.is_single_frame or self.is_single_volume) and self.is_tiff:
                 with tiff.TiffFile(self.filename) as tif:
                     data = tif.asarray()
                     new_shape = self.create_new_array(data)[0]
                     if self.melt:
                         snow_value = np.amax(data)
                         data = self.melt_snow(data,snow_value)
-                    if self.is_single_frame:
-                        remapped_image = self.process_2D(data,new_shape)
                     elif self.is_single_volume:
                         remapped_image = self.process_3D(data,new_shape)
                     print('processing done')
@@ -424,7 +425,7 @@ class App:
 
             elif self.is_3D_video:
                 self.process_4D()
-            elif self.is_2D_video:
+            elif self.is_2D_video or self.is_single_frame:
                 self.process_2Dt()
             else:
                 print('Image dimension not supported!')
@@ -519,7 +520,10 @@ class App:
         else:
             x_dim = data.shape[-1]
             y_dim = data.shape[-2]
-            t_dim = data.shape[-3]
+            try:
+                t_dim = data.shape[-3]
+            except IndexError:
+                t_dim = 1
  
         if self.rescale_image.get():
             if self.do_FDML_correction.get():
@@ -713,11 +717,15 @@ class App:
 
         # create new array with corrected aspect ratio
         new_shape,out_memmap = self.create_new_array(data)
-                
-        for timestep in np.arange(t_dim): 
-            new_shape[timestep] = self.process_2D(data[timestep],new_shape[0])
-            if timestep % 50 == 0:
-                print('Frame '+str(timestep)+' corrected')
+
+        if self.is_2D_video:
+            for timestep in np.arange(t_dim): 
+                new_shape[timestep] = self.process_2D(data[timestep],new_shape[0])
+                if timestep % 50 == 0:
+                    print('Frame '+str(timestep)+' corrected')
+        elif self.is_single_frame:
+            new_shape = self.process_2D(data,new_shape)
+            
 
         self.save_data(data,new_shape,in_memmap,out_memmap)          
         return
@@ -759,8 +767,11 @@ class App:
 
     def process_2D(self,data,shape_array):
 
+
         if not self.x_corr and not self.fdml and not self.y_corr:
             remapped_image = data
+
+        print(data.shape,shape_array.shape)
 
         if self.y_corr:
             remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
@@ -863,6 +874,11 @@ class App:
         averaging = 1 
         meta3D = {}
         ird_metadata = create_metadata(self.ird_file)
+        px_size_x =round(float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1],2)
+        px_size_y =round(float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2],2)
+        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],2)
+        
+
         if self.is_2D_video:
             averaging = self.ird_2d_averaging.get()
             time_increment = 1/(float(ird_metadata['MM/Laser/SweepFrequency'])*1e6/(float(ird_metadata['MM/FunX/SineLength'])*2))
@@ -876,9 +892,6 @@ class App:
         else:
             time_increment = 1
 
-        px_size_x =round(float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1],2)
-        px_size_y =round(float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2],2)
-        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],2)
         metadata = {
             'axes': self.get_axes(),
             'unit': 'µm',
