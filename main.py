@@ -470,6 +470,9 @@ class App:
             if len(tif_shape) == 3:
                 tif_shape = (t_dim,tif_shape[-2],tif_shape[-1])
                 z_dim = 1
+                if new_t_dim == 1:
+                    self.is_single_frame = True
+                    self.is_2D_video = False
             else:
                 tif_shape = (t_dim,tif_shape[-3],tif_shape[-2],tif_shape[-1])
                 z_dim = tif_shape[-3]
@@ -770,8 +773,6 @@ class App:
 
         if not self.x_corr and not self.fdml and not self.y_corr:
             remapped_image = data
-
-        print(data.shape,shape_array.shape)
 
         if self.y_corr:
             remapped_image = remapping2D(data,shape_array,self.upsampling_factor)
