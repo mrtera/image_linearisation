@@ -11,9 +11,6 @@ def merge_tiffs_in_folder(input_folder, output_file, z_spacing=0.5):
         for key, value in tif.pages[0].tags.items():
             metadata[str(key)] = str(value.value)
         
-    for key, value in metadata.items():
-        print(f"{key}: {value}")
-    
     if not tiff_files:
         print("No TIFF files found in the specified folder.")
         return
@@ -44,7 +41,7 @@ def merge_tiffs_in_folder(input_folder, output_file, z_spacing=0.5):
 
     
 if __name__ == '__main__':
-    input_folder = 'D:\\z-stack 0.5 um'
+    input_folder = 'M:\\08_SLIDE\\25.12.16 - PSF\\0.5 um 3 4A'
     output_file = 'a_merged_output.tif'
     z_spacing = 0.5
     merge_tiffs_in_folder(input_folder, f'{input_folder}\\{output_file}', z_spacing)

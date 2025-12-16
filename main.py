@@ -1,6 +1,8 @@
 #%%
 import os
-from HMF import *
+import glob
+from timeit import default_timer as timer  
+from time import time 
 from tkinter import *
 from tkinter.ttk import *
 from tkinter import filedialog
@@ -10,8 +12,8 @@ try:
     from numba import jit, prange
 except ImportError:
     print('tifffile, numpy or numba import error, please install with: \n pip install tifffile numpy numba')
-from timeit import default_timer as timer  
-from time import time 
+
+from HMF import *
 
 try:
     import rawdata
@@ -157,8 +159,7 @@ class App:
 
         upsampling_values = [2**0,2**1,2**2,2**3,2**4,2**5,2**6,2**7,2**8,2**9,2**10]
 
-        label = Label(settings_frame, text='galvo sin correction:')
-        label.grid(row=current_row, column=0)
+        Label(settings_frame, text='galvo sin correction:').grid(row=current_row, column=0)
         current_row += 1
 
         self.do_FDML_correction = BooleanVar(value=True)
@@ -180,8 +181,7 @@ class App:
         do_z_correction_checkbox.grid(row=current_row, column=0)
         
         self.rollz = IntVar(value=0)
-        rollz_label = Label(settings_frame, text='roll z by:')
-        rollz_label.grid(row=current_row, column=1)
+        Label(settings_frame, text='roll z by:').grid(row=current_row, column=1)
         rollz_spinbox = Spinbox(settings_frame, from_=-100, to=100, width=4, textvariable=self.rollz)
         rollz_spinbox.set(self.rollz.get())
         rollz_spinbox.grid(row=current_row, column=2)
@@ -191,8 +191,7 @@ class App:
         flatten4D_checkbox = Checkbutton(settings_frame, text='Sum 4D to 2Dt', variable=self.flatten4D)
         flatten4D_checkbox.grid(row=current_row, column=0, columnspan=1)
 
-        label = Label(settings_frame, text='Upsampleing factor:')
-        label.grid(row=current_row, column=1, columnspan=2)
+        Label(settings_frame, text='Upsampleing factor:').grid(row=current_row, column=1, columnspan=2)
         self.upsampling_factor_spinbox = Spinbox(settings_frame, values=upsampling_values, width=4)
         self.upsampling_factor_spinbox.set(upsampling_values[4])
         self.upsampling_factor_spinbox.grid(row=current_row, column=3)
@@ -215,8 +214,7 @@ class App:
         include_center_pixel_checkbox = Checkbutton(settings_frame, text='center pixel', variable=self.include_center_pixel)
         include_center_pixel_checkbox.grid(row=current_row, column=1)
 
-        label = Label(settings_frame, text='filter size:')
-        label.grid(row=current_row, column=2)
+        Label(settings_frame, text='filter size:').grid(row=current_row, column=2)
         self.filter_size = IntVar(value=3)
         self.filter_size_spinbox = Spinbox(settings_frame, textvariable=self.filter_size, from_=3, to=5, width=4, increment=2)
         self.filter_size_spinbox.grid(row=current_row, column=3)
@@ -241,8 +239,7 @@ class App:
         ranges_frame['relief'] = 'groove'
         ranges_frame.grid(row=current_row, column =2)
 
-        ird_label = Label(ranges_frame, text='time ranges (no batch, default all):')
-        ird_label.grid(row=current_row, column=0, columnspan=3)
+        Label(ranges_frame, text='time ranges (no batch, default all):').grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
         #add standard text to entry
@@ -287,17 +284,22 @@ class App:
         ird_frame['relief'] = 'groove'
         ird_frame.grid(row=current_row, column =3)
         
-        ird_label = Label(ird_frame, text='ird settings:')
-        ird_label.grid(row=current_row, column=0, columnspan=3)
+        Label(ird_frame, text='ird settings:').grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
         self.ird_2d_averaging = IntVar(value=100)
-        ird_2d_averaging_label = Label(ird_frame, text='2D averaging:')
-        ird_2d_averaging_label.grid(row=current_row, column=0)
+        Label(ird_frame, text='2D averaging:').grid(row=current_row, column=0)
         ird_2d_averaging_spinbox = Spinbox(ird_frame, from_=1, to=100000, width=6, textvariable=self.ird_2d_averaging)
         # ird_2d_averaging_spinbox.set(self.ird_2d_averaging.get())
         ird_2d_averaging_spinbox.grid(row=current_row, column=1)
         current_row += 1
+        Label(ird_frame, text=' ').grid(row=current_row, column=0)
+        current_row += 1
+        Label(ird_frame, text='PSF stack').grid(row=current_row, column=0, columnspan=3)
+        current_row += 1
+        Button(ird_frame, text='ird folder', command=self.ird_to_tiff_folder).grid(row=current_row, column=0, columnspan=3)
+        current_row += 1
+
 
         # data buttons
         open_button = Button(root, text='Open Image', command=self.open_image)
@@ -305,6 +307,11 @@ class App:
         
         process = Button(root, text='Process Image', command=self.process)
         process.grid(row=1, column=1)
+    
+    def ird_to_tiff_folder(self):
+        folder = filedialog.askdirectory()
+        if folder:
+            files = sorted(glob.glob(os.path.join(folder, '*.ird')))
 
     def X_correction_flipflop_fdml(self):
         if self.do_x_correction.get() == True:
