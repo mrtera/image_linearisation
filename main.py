@@ -345,6 +345,9 @@ class App:
             images = napari_streamin.arrays.VolumeArray(self.provider)
             self.channels = self.ird_file.numChannels()
 
+            if images.shape[0]>1:
+                self.is_3D_video = True
+
             if images.shape[0]==1:
                 self.is_single_volume = True
 
