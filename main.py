@@ -345,6 +345,7 @@ class App:
             images = napari_streamin.arrays.VolumeArray(self.provider)
             self.channels = self.ird_file.numChannels()
 
+
             if images.shape[0]>1:
                 self.is_3D_video = True
 
@@ -357,11 +358,13 @@ class App:
                 images._processor.setUndistortion(imaging.ImageGenerator.Undistort__None)
 
                 self.is_2D_video = True
+                self.is_3D_video = False
+                self.is_single_volume = False
 
                 if images.shape[0]==1:
                     self.is_single_frame = True
                     self.is_2D_video = False
-
+            
             self.original_t_dim = images.shape[0]
             shape = images.shape
         
