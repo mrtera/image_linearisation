@@ -345,7 +345,6 @@ class App:
             images = napari_streamin.arrays.VolumeArray(self.provider)
             self.channels = self.ird_file.numChannels()
 
-
             if images.shape[0]>1:
                 self.is_3D_video = True
 
@@ -364,7 +363,7 @@ class App:
                 if images.shape[0]==1:
                     self.is_single_frame = True
                     self.is_2D_video = False
-            
+
             self.original_t_dim = images.shape[0]
             shape = images.shape
         
@@ -431,7 +430,7 @@ class App:
                     if self.melt:
                         snow_value = np.amax(data)
                         data = self.melt_snow(data,snow_value)
-                    elif self.is_single_volume:
+                    if self.is_single_volume:
                         remapped_image = self.process_3D(data,new_shape)
                     print('processing done')
                     self.save_image(remapped_image)
