@@ -683,7 +683,7 @@ class App:
             start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
-                if timestep % 50 == 0:
+                if timestep % 20 == 0:
                     print(str(timestep)+' volumes corrected')
                     if self.verbose.get():
                         print('Time elapsed: '+str(timer()-start))
