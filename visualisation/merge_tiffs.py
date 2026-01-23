@@ -3,6 +3,7 @@ import os
 import tifffile as tiff
 import numpy as np
 import glob
+from tkinter import filedialog
 def merge_tiffs_in_folder(input_folder, output_file, z_spacing=0.5):
     # Get list of all tiff files in the folder
     tiff_files = sorted(glob.glob(os.path.join(input_folder, '*.tif')))
@@ -41,7 +42,7 @@ def merge_tiffs_in_folder(input_folder, output_file, z_spacing=0.5):
 
     
 if __name__ == '__main__':
-    input_folder = 'M:\\08_SLIDE\\25.12.16 - PSF\\0.5 um 3 4A'
+    input_folder = filedialog.askdirectory()
     output_file = 'a_merged_output.tif'
     z_spacing = 0.5
     merge_tiffs_in_folder(input_folder, f'{input_folder}\\{output_file}', z_spacing)
