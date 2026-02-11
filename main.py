@@ -970,25 +970,28 @@ class App:
         
         processing = ([self.fdml,self.x_corr,self.y_corr,self.z_corr,self.rescale])
 
+        modstrind = ''
+
         if self.hmf:
             if self.is_single_frame or self.is_2D_video:
                 if self.cPixel:
-                    hmfString=f'_hmf-{self.fSize}x{self.fSize}+'
+                    modstrind=f'_hmf-{self.fSize}x{self.fSize}+'
                 else:
-                    hmfString=f'_hmf-{self.fSize}x{self.fSize}-'
+                    modstrind=f'_hmf-{self.fSize}x{self.fSize}-'
             else:
                 if self.cPixel:
-                    hmfString=f'_hmf+'
+                    modstrind=f'_hmf+'
                 else:
-                    hmfString=f'_hmf-'
-        else:
-            hmfString=''
+                    modstrind=f'_hmf-'
+
+        if self.rollz.get() != 0:
+            modstrind = modstrind + f'_rollz_{self.rollz.get()}'
 
         self.filename = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         if not any(processing):
-            self.filename = self.filename.replace(f'_processed.ome.tif',f'{hmfString}.ome.tif')
+            self.filename = self.filename.replace(f'_processed.ome.tif',f'{modstrind}.ome.tif')
         else:
-            self.filename = self.filename.replace(f'.ome.tif',f'{hmfString}.ome.tif')
+            self.filename = self.filename.replace(f'.ome.tif',f'{modstrind}.ome.tif')
 
     def save_image(self,data):
         print('compressing and saving data')
