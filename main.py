@@ -293,7 +293,11 @@ class App:
         # ird_2d_averaging_spinbox.set(self.ird_2d_averaging.get())
         ird_2d_averaging_spinbox.grid(row=current_row, column=1)
         current_row += 1
-        Label(ird_frame, text=' ').grid(row=current_row, column=0)
+
+        self.CH2 = BooleanVar(value=False)
+        Checkbutton(ird_frame, text='CH 2', variable=self.CH2,  command=self.CH2_toggle).grid(row=current_row, column=0)
+        self.both = BooleanVar(value=False)
+        Checkbutton(ird_frame, text='both', variable=self.both, command=self.both_toggle).grid(row=current_row, column=1)
         current_row += 1
         Label(ird_frame, text='PSF stack').grid(row=current_row, column=0, columnspan=3)
         current_row += 1
@@ -313,17 +317,24 @@ class App:
         if folder:
             files = sorted(glob.glob(os.path.join(folder, '*.ird')))
 
-    def X_correction_flipflop_fdml(self):
-        if self.do_x_correction.get() == True:
-            self.do_x_correction.set(False)
-            self.do_FDML_correction.set(True)
-    
     def X_correction_flipflop_galvo(self):
-        if self.do_FDML_correction.get() == True:
+        if self.do_x_correction.get() == True:
             self.do_FDML_correction.set(False)
-            self.do_x_correction.set(True)
+    
+    def X_correction_flipflop_fdml(self):
+        if self.do_FDML_correction.get() == True:
+            self.do_x_correction.set(False)
+
+    def CH2_toggle(self):
+        if self.CH2.get() == True:
+            self.both.set(False)
+    
+    def both_toggle(self):
+        if self.both.get() == True:
+            self.CH2.set(False)
                 
-    def decide_data_type(self):
+    def decide_data_type(self,chanel=0):
+
         self.is_tiff = False
         self.is_ird = False
         self.is_single_frame = False
@@ -341,7 +352,7 @@ class App:
             self.is_ird = True
             self.ird_file = rawdata.InputFile()
             self.ird_file.open(self.filename)
-            self.provider = rawdata.ImageDataProvider(self.ird_file,0)
+            self.provider = rawdata.ImageDataProvider(self.ird_file,chanel)
             images = napari_streamin.arrays.VolumeArray(self.provider)
             self.channels = self.ird_file.numChannels()
 
@@ -419,31 +430,38 @@ class App:
         for self.filename in self.filenames:
             if len(self.filenames)>1: # deactivate ranges for multiple files and reset ranges from previous file
                 self.ranges = [] 
+            channels = [0]
+            # Multi CH support. A new Tiff is generated for each channel due to memmory limitations
+            if self.CH2:
+                channels = [1]
+            if self.both:
+                channels = [0,1]
+            
+            for self.channel in channels:
+                self.decide_data_type(self.channel)
+                print("Processing: '"+self.filename+"' \nloading data")
 
-            self.decide_data_type()
-            print("Processing: '"+self.filename+"' \nloading data")
+                if (self.is_single_frame or self.is_single_volume) and self.is_tiff:
+                    with tiff.TiffFile(self.filename) as tif:
+                        data = tif.asarray()
+                        new_shape = self.create_new_array(data)[0]
+                        if self.melt:
+                            snow_value = np.amax(data)
+                            data = self.melt_snow(data,snow_value)
+                        if self.is_single_volume:
+                            remapped_image = self.process_3D(data,new_shape)
+                        print('processing done')
+                        self.save_image(remapped_image)
 
-            if (self.is_single_frame or self.is_single_volume) and self.is_tiff:
-                with tiff.TiffFile(self.filename) as tif:
-                    data = tif.asarray()
-                    new_shape = self.create_new_array(data)[0]
-                    if self.melt:
-                        snow_value = np.amax(data)
-                        data = self.melt_snow(data,snow_value)
-                    if self.is_single_volume:
-                        remapped_image = self.process_3D(data,new_shape)
-                    print('processing done')
-                    self.save_image(remapped_image)
-
-            elif self.is_3D_video:
-                self.process_4D()
-            elif self.is_2D_video or self.is_single_frame:
-                self.process_2Dt()
-            else:
-                print('Image dimension not supported!')
-            if self.is_ird:
-                self.ird_file.close()
-            self.text_ranges.delete(2.0, END)
+                elif self.is_3D_video:
+                    self.process_4D()
+                elif self.is_2D_video or self.is_single_frame:
+                    self.process_2Dt()
+                else:
+                    print('Image dimension not supported!')
+                if self.is_ird:
+                    self.ird_file.close()
+                self.text_ranges.delete(2.0, END)
 
 
     def phase_shift_z(self,data,offset):
@@ -970,35 +988,43 @@ class App:
         
         processing = ([self.fdml,self.x_corr,self.y_corr,self.z_corr,self.rescale])
 
-        modstrind = ''
+        modstring = ''
+
+        if self.CH2 or self.both:
+            modstring = modstring + f'_CH{self.channel+1}'
+
+        if self.is_ird and (self.is_single_frame or self.is_2D_video):
+            modstring = modstring+f'_{str(self.ird_2d_averaging.get())}x_avg'
 
         if self.hmf:
             if self.is_single_frame or self.is_2D_video:
                 if self.cPixel:
-                    modstrind=f'_hmf-{self.fSize}x{self.fSize}+'
+                    modstring=modstring+f'_hmf-{self.fSize}x{self.fSize}+'
                 else:
-                    modstrind=f'_hmf-{self.fSize}x{self.fSize}-'
+                    modstring=modstring+f'_hmf-{self.fSize}x{self.fSize}-'
             else:
                 if self.cPixel:
-                    modstrind=f'_hmf+'
+                    modstring=modstring+f'_hmf+'
                 else:
-                    modstrind=f'_hmf-'
+                    modstring=modstring+f'_hmf-'
 
         if self.rollz.get() != 0:
-            modstrind = modstrind + f'_rollz_{self.rollz.get()}'
+            modstring = modstring + f'_rollz_{self.rollz.get()}'
 
-        self.filename = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
+        filename_out = self.filename.replace('.ome','').replace('.tif', '_processed.ome.tif').replace('.ird', '_processed.ome.tif')
         if not any(processing):
-            self.filename = self.filename.replace(f'_processed.ome.tif',f'{modstrind}.ome.tif')
+            filename_out = filename_out.replace(f'_processed.ome.tif',f'{modstring}.ome.tif')
         else:
-            self.filename = self.filename.replace(f'.ome.tif',f'{modstrind}.ome.tif')
+            filename_out = filename_out.replace(f'.ome.tif',f'{modstring}.ome.tif')
+        return filename_out
+    
 
     def save_image(self,data):
         print('compressing and saving data')
         axes = self.get_axes()
         self.set_filename()
         tiff.imwrite(
-            self.filename,
+            self.set_filename(),            
             data,
             ome=TRUE,
             bigtiff=TRUE,
@@ -1016,8 +1042,8 @@ class App:
             with tiff.TiffFile(path) as tif:
                 data = tif.asarray()
                 axes = self.get_axes()
-                self.set_filename()
-                tiff.imwrite(self.filename,
+                
+                tiff.imwrite(self.set_filename(),
                     data,
                     ome=TRUE,
                     bigtiff=TRUE,
