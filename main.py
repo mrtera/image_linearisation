@@ -438,7 +438,6 @@ class App:
                 channels = []
                 for ch in range(self.num_channels):
                     channels.append(ch)
-                print(channels)
             
             for self.channel in channels:
                 self.decide_data_type(self.channel)
