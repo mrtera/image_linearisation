@@ -296,13 +296,13 @@ class App:
 
         self.CH2 = BooleanVar(value=False)
         Checkbutton(ird_frame, text='CH 2', variable=self.CH2,  command=self.CH2_toggle).grid(row=current_row, column=0)
-        self.both = BooleanVar(value=False)
-        Checkbutton(ird_frame, text='both', variable=self.both, command=self.both_toggle).grid(row=current_row, column=1)
+        self.all = BooleanVar(value=False)
+        Checkbutton(ird_frame, text='all CH', variable=self.all, command=self.all_toggle).grid(row=current_row, column=1)
         current_row += 1
-        Label(ird_frame, text='PSF stack').grid(row=current_row, column=0, columnspan=3)
-        current_row += 1
-        Button(ird_frame, text='ird folder', command=self.ird_to_tiff_folder).grid(row=current_row, column=0, columnspan=3)
-        current_row += 1
+        # Label(ird_frame, text='PSF stack').grid(row=current_row, column=0, columnspan=3)
+        # current_row += 1
+        # Button(ird_frame, text='ird folder', command=self.ird_to_tiff_folder).grid(row=current_row, column=0, columnspan=3)
+        # current_row += 1
 
 
         # data buttons
@@ -327,10 +327,10 @@ class App:
 
     def CH2_toggle(self):
         if self.CH2.get() == True:
-            self.both.set(False)
+            self.all.set(False)
     
-    def both_toggle(self):
-        if self.both.get() == True:
+    def all_toggle(self):
+        if self.all.get() == True:
             self.CH2.set(False)
                 
     def decide_data_type(self,chanel=0):
@@ -341,7 +341,7 @@ class App:
         self.is_single_volume = False
         self.is_2D_video = False
         self.is_3D_video = False
-        self.channels = 1
+        self.num_channels = 1
         
         try:
             del self.original_t_dim
@@ -354,7 +354,7 @@ class App:
             self.ird_file.open(self.filename)
             self.provider = rawdata.ImageDataProvider(self.ird_file,chanel)
             images = napari_streamin.arrays.VolumeArray(self.provider)
-            self.channels = self.ird_file.numChannels()
+            self.num_channels = self.ird_file.numChannels()
 
             if images.shape[0]>1:
                 self.is_3D_video = True
@@ -428,14 +428,17 @@ class App:
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
-            if len(self.filenames)>1: # deactivate ranges for multiple files and reset ranges from previous file
-                self.ranges = [] 
+            # if len(self.filenames)>1: # deactivate ranges for multiple files
+            #     self.ranges = [] 
             channels = [0]
-            # Multi CH support. A new Tiff is generated for each channel due to memmory limitations
-            if self.CH2:
+            # Multi CH support. A new Tiff is generated for each channel due to memmory limitations. If nothing is selected, CH0 is processed.
+            if self.CH2.get() == True:
                 channels = [1]
-            if self.both:
-                channels = [0,1]
+            if self.all.get() == True:
+                self.channels = []
+                for ch in range(self.num_channels):
+                    channels.append(ch)
+                print(channels)
             
             for self.channel in channels:
                 self.decide_data_type(self.channel)
@@ -561,7 +564,7 @@ class App:
         if self.rescale_image.get():
             if self.do_FDML_correction.get():
                 x_dim = int(round(x_dim*np.sqrt(2)/(1/2*np.pi)))
-            if self.do_x_correction.get():
+            elif self.do_x_correction.get():
                 x_dim = int(round(x_dim*2/np.pi))
             if self.do_y_correction.get():
                 y_dim = int(round(y_dim*2/np.pi))
@@ -907,8 +910,8 @@ class App:
         ird_metadata = create_metadata(self.ird_file)
         px_size_x =round(float(ird_metadata['MM/Machine/ScaleX'])*float(ird_metadata['MM/Laser/SweepRange'])/self.image_out_shape[-1],2)
         px_size_y =round(float(ird_metadata['MM/Machine/ScaleY'])*float(ird_metadata['MM/FunX/SineAmplitude'])/self.image_out_shape[-2],2)
-        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],2)
-        
+        px_size_z =round(float(ird_metadata['MM/Machine/ScaleZ'])*float(ird_metadata['MM/FunY/SineAmplitude'])/self.image_out_shape[-3],2) 
+        self.sweep_range = float(ird_metadata['MM/Laser/SweepRange'])
 
         if self.is_2D_video:
             averaging = self.ird_2d_averaging.get()
@@ -933,7 +936,7 @@ class App:
             'PhysicalSizeY': px_size_y,
             'PhysicalSizeYUnit': 'µm',
             'unit': 'µm',
-            'fps': 1/(time_increment*averaging)
+            'fps': 1/(time_increment*averaging),
         }
         metadata.update(meta3D)
         return metadata
@@ -988,13 +991,13 @@ class App:
         
         processing = ([self.fdml,self.x_corr,self.y_corr,self.z_corr,self.rescale])
 
-        modstring = ''
+        modstring = f'_{int(self.sweep_range)}nm_sweep'
 
-        if self.CH2 or self.both:
+        if self.CH2.get() == True or self.all.get() == True:
             modstring = modstring + f'_CH{self.channel+1}'
 
         if self.is_ird and (self.is_single_frame or self.is_2D_video):
-            modstring = modstring+f'_{str(self.ird_2d_averaging.get())}x_avg'
+            modstring = modstring+f'_{str(self.ird_2d_averaging.get())}x_acc'
 
         if self.hmf:
             if self.is_single_frame or self.is_2D_video:
@@ -1018,10 +1021,9 @@ class App:
             filename_out = filename_out.replace(f'.ome.tif',f'{modstring}.ome.tif')
         return filename_out
     
-
     def save_image(self,data):
         print('compressing and saving data')
-        axes = self.get_axes()
+        metadata = self.make_metadata()
         self.set_filename()
         tiff.imwrite(
             self.set_filename(),            
@@ -1031,18 +1033,17 @@ class App:
             photometric='minisblack',
             compression='zlib',
             compressionargs={'level': 6},
-            metadata=self.make_metadata()
+            metadata=metadata
             )
         del data
         print('Data compressed and saved')
 
     def compress_image(self,path):
         print('attempting data compression')
+        metadata = self.make_metadata()
         try:
             with tiff.TiffFile(path) as tif:
-                data = tif.asarray()
-                axes = self.get_axes()
-                
+                data = tif.asarray()              
                 tiff.imwrite(self.set_filename(),
                     data,
                     ome=TRUE,
@@ -1050,8 +1051,7 @@ class App:
                     photometric='minisblack',
                     compression='zlib',
                     compressionargs={'level': 8},
-                    metadata=self.make_metadata()
-
+                    metadata=metadata
                     )
             print('Data compressed and saved')
         except np.core._exceptions._ArrayMemoryError:
