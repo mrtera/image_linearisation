@@ -435,7 +435,7 @@ class App:
             if self.CH2.get() == True:
                 channels = [1]
             if self.all.get() == True:
-                self.channels = []
+                channels = []
                 for ch in range(self.num_channels):
                     channels.append(ch)
                 print(channels)
