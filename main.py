@@ -428,8 +428,8 @@ class App:
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
-            # if len(self.filenames)>1: # deactivate ranges for multiple files
-            #     self.ranges = [] 
+            if len(self.filenames)>1: # deactivate ranges for multiple files and reset per file
+                self.ranges = [] 
             channels = [0]
             # Multi CH support. A new Tiff is generated for each channel due to memmory limitations. If nothing is selected, CH0 is processed.
             if self.CH2.get() == True:
@@ -474,17 +474,17 @@ class App:
     def add_range(self):
         self.text_ranges.config(state=NORMAL)
         self.text_ranges.delete(2.0, END)
-        # try:
-        if not self.new_range.get() == '':
-            a,b=self.new_range.get().replace(' ','').split(':')
-            if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
-                new_start,new_end = a,b
-                self.ranges.append((new_start,new_end))
-        for start,end in self.ranges:
-            self.text_ranges.insert(INSERT, '\n'+start+':'+end)
-        self.new_range.set('')
-        # except AttributeError:
-        #             print('Select a file first')
+        try:
+            if not self.new_range.get() == '':
+                a,b=self.new_range.get().replace(' ','').split(':')
+                if (a,b) not in self.ranges and int(a) < self.original_t_dim and int(b)<=self.original_t_dim:
+                    new_start,new_end = a,b
+                    self.ranges.append((new_start,new_end))
+            for start,end in self.ranges:
+                self.text_ranges.insert(INSERT, '\n'+start+':'+end)
+            self.new_range.set('')
+        except AttributeError:
+                    print('Select a file first')
         self.text_ranges.config(state=DISABLED)
 
     def remove_last_range(self):
