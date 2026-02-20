@@ -1,20 +1,6 @@
 #%%
-import tifffile as tiff
 import numpy as np
-from tkinter import filedialog
 from numba import jit, prange
-
-from timeit import default_timer as timer  
-from time import time 
-
-def timer_func(func): 
-    def wrap_func(*args, **kwargs): 
-        t1 = time() 
-        result = func(*args, **kwargs) 
-        t2 = time() 
-        print((t2-t1)) #f'Function {func.__name__!r} executed in {(t2-t1):.4f} s'
-        return result 
-    return wrap_func 
 
 #playing with parallelized sort networks
 @jit(nopython=True)
@@ -424,38 +410,3 @@ def hybrid_3d_median_filter(stack, include_center_pixel=False):
 
 				filtered_stack[z, y, x] = median(medianarray)
 	return filtered_stack
-
-if __name__ == "__main__":
-
-	filepath = filedialog.askopenfilename()
-	with tiff.TiffFile(filepath) as tif:
-		print('Reading image...')
-		image = tif.asarray()
-		print('Image shape:', image.shape)
-
-	if len(image.shape) ==2:
-		filtered_image = hybrid_2d_median_filter(image, include_center_pixel=True, filtersize=3)
-		# tiff.imwrite('denoised_image.tiff', filtered_image, 
-		# 		compression='zlib',
-		# 		compressionargs={'level': 6},
-		# 		photometric='minisblack',
-		# 		metadata={'axes': 'YX'})
-
-	if len(image.shape) == 3:
-		filtered_stack = hybrid_3d_median_filter(image)
-		# tiff.imwrite('denoised_image.tiff', filtered_stack, 
-		# 		compression='zlib',
-		# 		compressionargs={'level': 6},
-		# 		photometric='minisblack',
-		# 		metadata={'axes': 'ZYX'})
-	elif len(image.shape) == 4:
-		for volume in range(image.shape[0]):
-			print(f'Processing volume {volume+1}/{image.shape[0]}')
-			image[volume] = hybrid_3d_median_filter(image[volume])
-		# tiff.imwrite('denoised_image.tiff', image,
-		# 		compression='zlib',
-		# 		compressionargs={'level': 6},
-		# 		photometric='minisblack',
-		# 		metadata={'axes': 'TZYX'})
-
-# %%
