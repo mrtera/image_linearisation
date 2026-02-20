@@ -1,5 +1,6 @@
 #%%
 import os
+import gc
 import glob
 from timeit import default_timer as timer  
 from time import time 
@@ -700,14 +701,11 @@ class App:
         # process data
         print('filtering data')
         if self.do_z_correction.get() or self.do_y_correction.get() or self.do_x_correction.get() or self.do_FDML_correction.get() or self.hybrid_median_filter.get():
-            start=timer()
             for timestep in range(t_dim):
                 new_shape[timestep] = self.process_3D(data[timestep],new_shape[0])
                 if timestep % 20 == 0:
                     print(str(timestep)+' volumes corrected')
-                    if self.verbose.get():
-                        print('Time elapsed: '+str(timer()-start))
-                        start=timer()
+
         if self.is_ird:
                 self.ird_file.close()
         if in_memmap:
@@ -970,6 +968,8 @@ class App:
                 except:
                     pass
             else:
+                del data
+                gc.collect()
                 self.save_image(new_shape)     
         return
     
@@ -1038,6 +1038,7 @@ class App:
             metadata=metadata
             )
         del data
+        gc.collect()
         print('Data compressed and saved')
 
     def compress_image(self,path):
