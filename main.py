@@ -428,8 +428,8 @@ class App:
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
-            if len(self.filenames)>1: # deactivate ranges for multiple files and reset per file
-                self.ranges = [] 
+            # if len(self.filenames)>1: # deactivate ranges for multiple files and reset per file
+            #     self.ranges = [] 
             channels = [0]
             # Multi CH support. A new Tiff is generated for each channel due to memmory limitations. If nothing is selected, CH0 is processed.
             if self.CH2.get() == True:
@@ -991,13 +991,16 @@ class App:
         
         processing = ([self.fdml,self.x_corr,self.y_corr,self.z_corr,self.rescale])
 
-        modstring = f'_{int(self.sweep_range)}nm_sweep'
+        modstring = ''
 
-        if self.CH2.get() == True or self.all.get() == True:
-            modstring = modstring + f'_CH{self.channel+1}'
+        if self.is_ird:
+            modstring = f'_{int(self.sweep_range)}nm_sweep'
 
-        if self.is_ird and (self.is_single_frame or self.is_2D_video):
-            modstring = modstring+f'_{str(self.ird_2d_averaging.get())}x_acc'
+            if self.CH2.get() == True or self.all.get() == True:
+                modstring = modstring + f'_CH{self.channel+1}'
+
+            if self.is_single_frame or self.is_2D_video:
+                modstring = modstring+f'_{str(self.ird_2d_averaging.get())}x_acc'
 
         if self.hmf:
             if self.is_single_frame or self.is_2D_video:
