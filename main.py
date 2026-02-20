@@ -993,7 +993,7 @@ class App:
         modstring = ''
 
         if self.is_ird:
-            modstring = f'_{int(self.sweep_range)}nm_sweep'
+            # modstring = f'_{int(self.sweep_range)}nm_sweep'
 
             if self.CH2.get() == True or self.all.get() == True:
                 modstring = modstring + f'_CH{self.channel+1}'
