@@ -130,9 +130,12 @@ class App:
         ranges_frame['relief'] = 'groove'
         ranges_frame.grid(row=current_row, column =2)
 
-        Label(ranges_frame, text='time ranges (no batch, default all):').grid(row=current_row, column=0, columnspan=3)
+        Label(ranges_frame, text='time ranges (default all):').grid(row=current_row, column=0, columnspan=3)
         current_row += 1
-
+        self.multifile_ranges = BooleanVar(value=False)
+        Checkbutton(ranges_frame, text='ranges for multiple files', variable=self.multifile_ranges).grid(row=current_row, column=0, columnspan=3)
+        current_row += 1
+        
         #add standard text to entry
         def on_entry_click(event):
             if range_entry.get() == 'start:end':
@@ -319,8 +322,8 @@ class App:
         self.snow_threshold = float(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
-            # if len(self.filenames)>1: # deactivate ranges for multiple files and reset per file
-            #     self.ranges = [] 
+            if len(self.filenames)>1 and not self.multifile_ranges.get(): # deactivate ranges for multiple if not marked different and reset per file
+                self.ranges = [] 
             channels = [0]
             # Multi CH support. A new Tiff is generated for each channel due to memmory limitations. If nothing is selected, CH0 is processed.
             if self.CH2.get() == True:
@@ -884,7 +887,7 @@ class App:
         modstring = ''
 
         if self.is_ird:
-            # modstring = f'_{int(self.sweep_range)}nm_sweep'
+            modstring = f'_{int(self.sweep_range)}nm_sweep'
 
             if self.CH2.get() == True or self.all.get() == True:
                 modstring = modstring + f'_CH{self.channel+1}'

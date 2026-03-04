@@ -46,3 +46,4 @@ if __name__ == '__main__':
     output_file = 'a_merged_output.tif'
     z_spacing = 0.5
     merge_tiffs_in_folder(input_folder, f'{input_folder}\\{output_file}', z_spacing)
+# %%
