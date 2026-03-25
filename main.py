@@ -72,7 +72,7 @@ class App:
         do_z_correction_checkbox.grid(row=current_row, column=0)
         
         self.rollz = IntVar(value=0)
-        Label(settings_frame, text='roll z by:').grid(row=current_row, column=1)
+        Label(settings_frame, text='phaseadjust (roll every second volume by):').grid(row=current_row, column=1)
         rollz_spinbox = Spinbox(settings_frame, from_=-100, to=100, width=4, textvariable=self.rollz)
         rollz_spinbox.set(self.rollz.get())
         rollz_spinbox.grid(row=current_row, column=2)
