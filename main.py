@@ -13,6 +13,7 @@ try:
     from numba import jit, prange
 except ImportError:
     print('tifffile, numpy or numba import error, please install with: \n pip install tifffile numpy numba')
+    
 
 from HMF import *
 from remapping import *
@@ -88,12 +89,12 @@ class App:
         self.upsampling_factor_spinbox.grid(row=current_row, column=3)
         current_row += 1
 
-        self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=0.99, width=4, increment=0.1, format='%.2f')
-        self.snow_threshold_spinbox.set(0.9)
+        self.snow_threshold_spinbox = Spinbox(settings_frame, from_=0, to=65535, width=4, increment=100)
+        self.snow_threshold_spinbox.set(1100)
         self.snow_threshold_spinbox.grid(row=current_row, column=3)
 
         self.remove_snow = BooleanVar(value=False)
-        remove_snow_checkbox = Checkbutton(settings_frame, text='remove high value pixels above x*max_value, x =', variable=self.remove_snow)
+        remove_snow_checkbox = Checkbutton(settings_frame, text='filter pixels above threshold', variable=self.remove_snow)
         remove_snow_checkbox.grid(row=current_row, column=0, columnspan=3)
         current_row += 1
 
@@ -319,7 +320,7 @@ class App:
 
         self.upsampling_factor = int(self.upsampling_factor_spinbox.get())
         self.melt = self.remove_snow.get()
-        self.snow_threshold = float(self.snow_threshold_spinbox.get())
+        self.snow_threshold = int(self.snow_threshold_spinbox.get())
 
         for self.filename in self.filenames:
             if len(self.filenames)>1 and not self.multifile_ranges.get(): # deactivate ranges for multiple if not marked different and reset per file
@@ -636,7 +637,7 @@ class App:
             
         # melt snow 2D if selected
         if self.melt:
-            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold*snow_value))
+            print('Max Snow value: '+str(snow_value) + ' filtering all values above ' + str(self.snow_threshold))
             for timestep in np.arange(t_dim): 
                 data[timestep] = self.melt_snow(data[timestep],snow_value)
             print('Snow removed')
@@ -716,78 +717,62 @@ class App:
     def melt_snow(self,data,snow_value):
         if self.verbose.get():
             print('Max Snow value: '+str(snow_value))
-            print('Remvoing snow above '+str(self.snow_threshold*snow_value))
-        filtered_data = data
-        snow_coords = list(zip(*np.where(data > self.snow_threshold*snow_value)))
+            print('Removing snow above '+str(self.snow_threshold))
+        filtered_data = data.copy()
+        snow_coords = list(zip(*np.where(data > self.snow_threshold)))
         x_dim = data.shape[-1]
         extended_coords=[]
         if data.ndim == 2:
-            data_shape = (data.shape[-2]-1,data.shape[-1]-1)
             kernel = np.ones((3,3))/6
-            kernel[1,:]=0
+            kernel[1,:] = 0
+            padded = np.pad(data, ((1,1),(1,1)), mode='reflect')
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
-               
-                if flakes[-1]-1 < 0:
-                    pass
-                else:
-                    extended_coords.append([flakes[-2],flakes[-1]-1])
+                if flakes[-1]-1 >= 0:
+                    extended_coords.append([flakes[-2], flakes[-1]-1])
 
-                extended_coords.append([flakes[-2],flakes[-1]])
-                
-                if flakes[-1]+1 > x_dim-2:
-                    pass
-                else:
-                    extended_coords.append([flakes[-2],flakes[-1]+1])   
+                extended_coords.append([flakes[-2], flakes[-1]])
 
-                if flakes[-1]+2 > x_dim-3:
-                    pass
-                else:
-                    extended_coords.append([flakes[-2],flakes[-1]+2])
+                if flakes[-1]+1 <= x_dim-2:
+                    extended_coords.append([flakes[-2], flakes[-1]+1])
+
+                if flakes[-1]+2 <= x_dim-3:
+                    extended_coords.append([flakes[-2], flakes[-1]+2])
 
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
             # filter snow
             for flakes in new_snow_coords:
-                if all(a < b for a, b in zip(flakes,data_shape)) and all(a > b for a, b in zip(flakes,(0,0))):
-                    filtered_data[flakes] = np.round(np.sum((data[flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)*0.01)*100).astype('uint16')
-                else:
-                    filtered_data[flakes] = 0
+                y, x = flakes
+                filtered_data[flakes] = np.round(np.sum(padded[y:y+3, x:x+3] * kernel)).astype('uint16')
 
         elif data.ndim == 3:
-            data_shape = (data.shape[-3]-1,data.shape[-2]-1,data.shape[-1]-1)
             kernel = np.ones((3,3,3))/24
-            kernel[1,1,:]=0
+            kernel[1,1,:] = 0
+            padded = np.pad(data, ((1,1),(1,1),(1,1)), mode='reflect')
 
             # extend snow coordinates to include neighbouring pixels in x direction
             for flakes in snow_coords:
-                if flakes[-1]-1 < 0:
-                    pass
-                else:
-                    extended_coords.append([flakes[-3],flakes[-2],flakes[-1]-1])
+                if flakes[-1]-1 >= 0:
+                    extended_coords.append([flakes[-3], flakes[-2], flakes[-1]-1])
 
-                extended_coords.append([flakes[-3],flakes[-2],flakes[-1]])
+                extended_coords.append([flakes[-3], flakes[-2], flakes[-1]])
 
-                if flakes[-1]+1 > x_dim-2:
-                    pass
-                else:
-                    extended_coords.append([flakes[-3],flakes[-2],flakes[-1]+1])
-                if flakes[-1]+2 > x_dim-3:
-                    pass
-                else:
-                    extended_coords.append([flakes[-3],flakes[-2],flakes[-1]+2])
+                if flakes[-1]+1 <= x_dim-2:
+                    extended_coords.append([flakes[-3], flakes[-2], flakes[-1]+1])
+
+                if flakes[-1]+2 <= x_dim-3:
+                    extended_coords.append([flakes[-3], flakes[-2], flakes[-1]+2])
 
             # remove duplicates
             new_snow_coords = list(set(map(tuple,extended_coords)))
 
             # filter snow
             for flakes in new_snow_coords:
-                if all(a < b for a, b in zip(flakes,data_shape)) and all(a > b for a, b in zip(flakes,(0,0,0))):
-                    filtered_data[flakes] = np.round(np.sum(data[flakes[-3]-1:flakes[-3]+2,flakes[-2]-1:flakes[-2]+2,flakes[-1]-1:flakes[-1]+2]*kernel)).astype('uint16')
-                # else:
-                    filtered_data[flakes] = 0
+                z, y, x = flakes
+                filtered_data[flakes] = int(np.round(np.sum(padded[z:z+3, y:y+3, x:x+3] * kernel)))
 
         return filtered_data
 
@@ -959,3 +944,5 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+
+# %%
