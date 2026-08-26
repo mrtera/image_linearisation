@@ -449,6 +449,7 @@ class App:
         else:
             x_dim = data.shape[-1]
             y_dim = data.shape[-2]
+            z_dim = 1
             try:
                 t_dim = data.shape[-3]
             except IndexError:
@@ -925,6 +926,7 @@ class App:
             self.set_filename(),            
             data,
             ome=TRUE,
+            
             bigtiff=TRUE,
             photometric='minisblack',
             compression='zlib',
@@ -959,3 +961,5 @@ if __name__ == '__main__':
     root = Tk()
     app = App(root)
     root.mainloop()
+
+# %%
