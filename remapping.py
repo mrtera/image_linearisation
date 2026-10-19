@@ -54,7 +54,7 @@ def remapping3D(data,shape_array,factor,FDML=False): # factor must be in (2,4,8,
         for row in range(dim):
             if FDML:
                 correction_factor = (1/(np.pi*np.sqrt(1.5*dim-row)*np.sqrt(row+1/2*dim)))/(1/3)
-            else:
+            else: # galvo scanned x
                 correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
 
             sum_correction_factor += correction_factor
@@ -103,7 +103,7 @@ def remapping2D(data,shape_array,factor,FDML=False):
     for row in range(dim):
         if FDML:
             correction_factor = (1/(np.pi*np.sqrt(1.5*dim-row)*np.sqrt(row+1/2*dim)))/(1/3)
-        else:
+        else: # galvo scanned x
             correction_factor = 1/(np.pi*np.sqrt(-1*(row+1/2)*(row+1/2-dim)))
         sum_correction_factor += correction_factor
         upsampled_row = int(np.round(dim_original*sum_correction_factor))
