@@ -66,6 +66,12 @@ class App:
         self.do_y_correction = BooleanVar(value=True)
         do_y_correction_checkbox = Checkbutton(settings_frame, text='Y', variable=self.do_y_correction)
         do_y_correction_checkbox.grid(row=current_row, column=0)
+
+        self.rolltrigger = IntVar(value=0)
+        Label(settings_frame, text='trigger adjust (roll data by n samples):').grid(row=current_row, column=1)
+        rolltrigger_spinbox = Spinbox(settings_frame, from_=-100, to=100, width=4, textvariable=self.rolltrigger)
+        rolltrigger_spinbox.set(self.rolltrigger.get())
+        rolltrigger_spinbox.grid(row=current_row, column=2)
         current_row += 1
 
         self.do_z_correction = BooleanVar(value=True)
@@ -73,7 +79,7 @@ class App:
         do_z_correction_checkbox.grid(row=current_row, column=0)
         
         self.rollz = IntVar(value=0)
-        Label(settings_frame, text='phaseadjust (roll every second volume by):').grid(row=current_row, column=1)
+        Label(settings_frame, text='phase adjust (roll every second volume by):').grid(row=current_row, column=1)
         rollz_spinbox = Spinbox(settings_frame, from_=-100, to=100, width=4, textvariable=self.rollz)
         rollz_spinbox.set(self.rollz.get())
         rollz_spinbox.grid(row=current_row, column=2)
@@ -491,6 +497,7 @@ class App:
     def load_ird(self, sections, snow_value=0, in_memmap=False, is2Dt=False):
         # import napari_streamin.arrays
         # import imaging # needed to change parameters such as undistort algorithm or sample processor
+        triggershift = self.rolltrigger.get()
         match is2Dt:
             case False:
                 irdata = napari_streamin.arrays.VolumeArray(self.provider)
@@ -523,7 +530,8 @@ class App:
                     if self.melt:
                         snow_value = np.maximum(snow_value,np.amax(data[index,:,:]))
                 data = np.squeeze(data)
-
+        if triggershift != 0:
+            data = np.roll(data,triggershift)
         return data, t_dim, snow_value, in_memmap
 
     def initialize_data_array(self, tif_shape, name=''):
